@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+unitypy = "*"
+load-dotenv = "*"
+
+[dev-packages]
+ruff = "*"
+
+[requires]
+python_version = "3.13"
+
+[scripts]
+main = "python main.py"
+lint = "ruff check"
+format = "ruff format"
