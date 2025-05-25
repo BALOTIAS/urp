@@ -3,6 +3,7 @@ import warnings
 import UnityPy
 import configparser
 
+
 def unpack_all_assets(source_folder: str, destination_folder: str):
     if not os.path.exists(source_folder):
         raise FileNotFoundError(f"Source folder '{source_folder}' does not exist.")

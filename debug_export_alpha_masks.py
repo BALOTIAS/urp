@@ -1,7 +1,10 @@
 import configparser
 import os
 
-def debug_export_alpha_masks(source_folder: str, destination_folder: str, fuzzy: bool = False):
+
+def debug_export_alpha_masks(
+    source_folder: str, destination_folder: str, fuzzy: bool = False
+):
     if not os.path.exists(source_folder):
         raise FileNotFoundError(f"Source folder '{source_folder}' does not exist.")
 

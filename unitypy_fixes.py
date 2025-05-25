@@ -1,4 +1,6 @@
 # Source: https://github.com/K0lb3/UnityPy/blob/master/UnityPy/export/Texture2DConverter.py
+import warnings
+
 from UnityPy.enums import TextureFormat
 
 
@@ -35,4 +37,19 @@ def compress_etcpak(
     else:
         raise NotImplementedError(
             f"etcpak has no compress function for {target_texture_format.name}"
+        )
+
+
+def patch_unitypy():
+    # As of UnityPy 1.22.3, the compress_etcpak function has an issue with the bc7 compression,
+    # as it passes `None` as the second argument to `etcpak.compress_bc7`, which is not supported.
+    # (even though it should be supported according to the etcpak documentation)
+    try:
+        from UnityPy.export import Texture2DConverter
+
+        Texture2DConverter.compress_etcpak = compress_etcpak
+        print("[UNOFFICIAL RETRO PATCH] Successfully monkey patched compress_etcpak.")
+    except (AttributeError, ImportError) as e:
+        warnings.warn(
+            f"[UNOFFICIAL RETRO PATCH] Failed to monkey patch compress_etcpak: {e}. Ensure UnityPy structure is as expected."
         )
