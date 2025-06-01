@@ -131,19 +131,17 @@ def pixelate_edition(edition_name: str):
                                 continue
 
                             if hasattr(data, "image"):
-                                # Load the asset image
-                                asset_image = data.image.convert("RGBA")
-
-                                # Process the image with our new module
-                                final_image = process_image(
-                                    image=asset_image,
+                                data.image = process_image(
+                                    image=data.image,
                                     resize_amount=resize_amount,
                                     mask_file=mask_file,
                                     asset_name=asset_name,
                                 )
+                                data.save()
 
-                                # Save the pixelated image back to the asset
-                                data.image = final_image
+                                print(
+                                    f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}"
+                                )
 
                                 if DEBUG_ENABLED:
                                     # Debug saving code remains the same...
@@ -153,15 +151,9 @@ def pixelate_edition(edition_name: str):
                                     os.makedirs(
                                         os.path.dirname(debug_path), exist_ok=True
                                     )
-                                    final_image.save(debug_path)
+                                    data.image.save(debug_path)
                                     print(
-                                        f"[UNOFFICIAL RETRO PATCH | DEBUG] Successfully pixelated {asset_name} in {debug_path}"
-                                    )
-                                else:
-                                    # Save the modified asset back to the asset file
-                                    data.save()
-                                    print(
-                                        f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}"
+                                        f"[UNOFFICIAL RETRO PATCH | DEBUG] Successfully exported pixelated {asset_name} in {debug_path}"
                                     )
                             else:
                                 warnings.warn(
@@ -170,6 +162,25 @@ def pixelate_edition(edition_name: str):
                         except Exception as e:
                             warnings.warn(f"Failed to pixelate {asset_file}: {e}")
 
+            # Save the modified asset file
+            modified_asset_file = asset_file + ".tmp"
+            with open(modified_asset_file, "wb") as f:
+                f.write(env.file.save())
+
+            backup_no = 1
+            backup_file = (
+                f"{asset_file}.backup{backup_no:03}"  # e.g. resources.assets.backup001
+            )
+            while os.path.exists(backup_file):
+                backup_no += 1
+                backup_file = f"{asset_file}.backup{backup_no:03}"
+
+            os.rename(asset_file, backup_file)
+            os.rename(modified_asset_file, asset_file)
+
+            print(
+                f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
+            )
         except Exception as e:
             warnings.warn(
                 f"[UNOFFICIAL RETRO PATCH] Failed to load asset file '{asset_file}': {e}"

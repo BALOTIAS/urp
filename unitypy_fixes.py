@@ -5,6 +5,7 @@ from UnityPy.enums import TextureFormat
 
 TF = TextureFormat
 
+
 def compress_etcpak(
     data: bytes, width: int, height: int, target_texture_format: TextureFormat
 ) -> bytes:
