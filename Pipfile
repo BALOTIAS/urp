@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-unitypy = "*"
+unitypy = ">=1.22.5"
 load-dotenv = "*"
 
 [dev-packages]
