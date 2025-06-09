@@ -35,7 +35,7 @@ def pixelate_edition(edition_name: str):
         )
 
     masks_folder = config.get(
-        edition_name, "masks_folder", fallback=f"masks/{edition_name}"
+        edition_name, "masks_folder", fallback=f"assets/masks/{edition_name}"
     )
     if not os.path.exists(masks_folder):
         raise FileNotFoundError(f"Masks folder '{masks_folder}' does not exist.")
@@ -104,7 +104,7 @@ def pixelate_edition(edition_name: str):
                 "asset_ext": extension,  # e.g. .png
                 "mask_file": os.path.join(
                     masks_folder, f"{asset_dir}/{pixelate_file}"
-                ),  # e.g. masks/Stronghold Definitive Edition/resources.assets/texture_name.png
+                ),  # e.g. assets/masks/Stronghold Definitive Edition/resources.assets/texture_name.png
             }
         )
 

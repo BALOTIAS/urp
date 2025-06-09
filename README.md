@@ -65,7 +65,7 @@ Edit `config.ini` to customize the patch:
 [Stronghold Definitive Edition]
 target_folder = downloads/Stronghold Definitive Edition
 assets_folder = Stronghold Definitive Edition_Data/resources.assets
-masks_folder = masks/Stronghold Definitive Edition
+masks_folder = assets/masks/Stronghold Definitive Edition
 debug_pixelated_folder = downloads/Stronghold Definitive Edition/pixelated
 pixel_amount = 2
 pixelate_files = resources.assets/texture1.png, resources.assets/texture2.png
