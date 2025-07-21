@@ -51,43 +51,11 @@ class RetroPixelatorGUI:
         main_frame = ttk.Frame(root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Edition selection as image buttons
-        edition_frame = ttk.Frame(main_frame)
-        edition_frame.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Label(edition_frame, text="Select Stronghold Version:").pack(side=tk.LEFT, padx=(0, 5))
-
-        # Load edition images (placeholder for second edition)
-        self.edition_images = []
-        edition_image_paths = [
-            "assets/icon/urp.png",  # For Stronghold Definitive Edition
-            "assets/icon/urp-small.png"  # Placeholder for Crusader
-        ]
-        for path in edition_image_paths:
-            if os.path.exists(path):
-                img = Image.open(path).resize((48, 48), Image.LANCZOS)
-                self.edition_images.append(ImageTk.PhotoImage(img))
-            else:
-                self.edition_images.append(None)
-
-        self.edition_buttons = []
-        for idx, edition in enumerate(self.editions):
-            btn = tk.Button(
-                edition_frame,
-                image=self.edition_images[idx] if idx < len(self.edition_images) else None,
-                text=edition,
-                compound="top",
-                command=lambda e=edition: self.select_edition(e),
-                relief=tk.SUNKEN if self.selected_edition.get() == edition else tk.RAISED,
-                width=60,
-                height=70
-            )
-            btn.pack(side=tk.LEFT, padx=5)
-            self.edition_buttons.append(btn)
-
         # Logo section
         logo_image = PhotoImage(file="assets/icon/urp.png")
         logo_label = ttk.Label(main_frame, image=logo_image)
         logo_label.image = logo_image
+        logo_label.pack()
 
         # Description section
         desc_frame = ttk.Frame(main_frame, padding="10")
@@ -106,7 +74,55 @@ class RetroPixelatorGUI:
         )
         description.pack(fill=tk.X, padx=5, pady=5)
 
-        # Pixelation amount slider
+        # Edition selection as image buttons (moved below logo and description)
+        edition_frame = ttk.Frame(main_frame)
+        edition_frame.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Label(edition_frame, text="Select Stronghold Version:").pack(side=tk.TOP, anchor=tk.W, padx=(0, 5))
+
+        # Load edition images (placeholder for second edition)
+        self.edition_images = []
+        edition_image_paths = [
+            "assets/icon/urp.png",  # For Stronghold Definitive Edition
+            "assets/icon/urp-small.png"  # Placeholder for Crusader
+        ]
+        for path in edition_image_paths:
+            if os.path.exists(path):
+                img = Image.open(path).resize((48, 48), Image.LANCZOS)
+                self.edition_images.append(ImageTk.PhotoImage(img))
+            else:
+                self.edition_images.append(None)
+
+        self.edition_buttons = []
+        # Use a frame for the buttons to control their width
+        edition_buttons_frame = ttk.Frame(edition_frame)
+        edition_buttons_frame.pack(fill=tk.X)
+        for idx, edition in enumerate(self.editions):
+            btn = tk.Button(
+                edition_buttons_frame,
+                image=self.edition_images[idx] if idx < len(self.edition_images) else None,
+                text=edition,
+                compound="top",
+                command=lambda e=edition: self.select_edition(e),
+                relief=tk.SUNKEN if self.selected_edition.get() == edition else tk.RAISED,
+                width=1,  # width in characters, will be overridden by .place
+                height=70
+            )
+            btn.grid(row=0, column=idx, sticky="nsew", padx=5)
+            self.edition_buttons.append(btn)
+        edition_buttons_frame.columnconfigure(0, weight=1)
+        edition_buttons_frame.columnconfigure(1, weight=1)
+
+        # Preview area (moved above pixelation slider)
+        preview_frame = ttk.LabelFrame(main_frame, text="Preview", padding="10")
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.preview_canvas = tk.Label(preview_frame)
+        self.preview_canvas.pack(padx=5, pady=5)
+        self.preview_image = None
+        self.preview_pil = None
+        self.load_placeholder_image()
+        self.update_preview()
+
+        # Pixelation amount slider (now below preview)
         pixelation_frame = ttk.LabelFrame(main_frame, text="Pixelation Amount", padding="10")
         pixelation_frame.pack(fill=tk.X, padx=5, pady=5)
         self.pixelation_var = tk.DoubleVar(value=0.5)
@@ -121,16 +137,6 @@ class RetroPixelatorGUI:
         self.pixelation_slider.pack(fill=tk.X, padx=5, pady=5)
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
-
-        # Preview area
-        preview_frame = ttk.LabelFrame(main_frame, text="Preview", padding="10")
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.preview_canvas = tk.Label(preview_frame)
-        self.preview_canvas.pack(padx=5, pady=5)
-        self.preview_image = None
-        self.preview_pil = None
-        self.load_placeholder_image()
-        self.update_preview()
 
         # Game path section
         self.path_frame = ttk.LabelFrame(main_frame, text="Game Installation", padding="10")
