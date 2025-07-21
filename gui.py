@@ -64,7 +64,7 @@ class RetroPixelatorGUI:
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
         # --- LEFT COLUMN ---
-        # Logo and Description side by side
+        # Logo and Description side by side, description takes full left column width
         logo_desc_frame = ttk.Frame(left_frame)
         logo_desc_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
         logo_path = "assets/icon/urp-small.png" if os.path.exists("assets/icon/urp-small.png") else "assets/icon/urp.png"
@@ -79,11 +79,21 @@ class RetroPixelatorGUI:
         description = ttk.Label(
             logo_desc_frame,
             text=desc_text,
-            wraplength=220,
+            wraplength=1,  # will be set dynamically below
             justify="left",
             anchor="center",
         )
-        description.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=0)
+        description.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=0)
+        # Dynamically set wraplength to half the window width minus logo width
+        def update_desc_wrap(event=None):
+            # Get left_frame width, subtract logo width and some padding
+            left_width = left_frame.winfo_width()
+            logo_width = logo_label.winfo_width()
+            pad = 40
+            wrap = max(200, left_width - logo_width - pad)
+            description.config(wraplength=wrap)
+        left_frame.bind('<Configure>', update_desc_wrap)
+        logo_label.bind('<Configure>', update_desc_wrap)
 
         # Edition selection
         edition_frame = ttk.Frame(left_frame)
@@ -193,6 +203,26 @@ class RetroPixelatorGUI:
         self.load_placeholder_image()
         self.update_preview()
 
+        # --- FOOTER ---
+        footer = ttk.Frame(root, padding="5")
+        footer.pack(side=tk.BOTTOM, fill=tk.X)
+        # Console output/status
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready. If the GUI becomes unresponsive during pixelation, please wait until the operation completes.")
+        status_bar = ttk.Label(
+            footer, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
+        )
+        status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        # Apply pixelation and restore backup buttons (right side)
+        footer_pixelate_btn = ttk.Button(
+            footer, text="Apply Pixelation", command=self.apply_pixelation_threaded
+        )
+        footer_pixelate_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        footer_restore_btn = ttk.Button(
+            footer, text="Restore Backup", command=self.restore_backup
+        )
+        footer_restore_btn.pack(side=tk.RIGHT, padx=(5, 0))
+
     def load_placeholder_image(self):
         edition = self.selected_edition.get()
 
@@ -222,18 +252,21 @@ class RetroPixelatorGUI:
         from pixelation import pixelate_image
         pil_img = pixelate_image(self.preview_pil, value)
 
-        # Zoom into the center of the image
+        # Make preview square (crop to square center)
         width, height = pil_img.size
-        pixel_offset = int(0.5 * min(width, height))
-        left = (width - pixel_offset) // 2
-        top = (height - pixel_offset) // 2
-        right = left + pixel_offset
-        bottom = top + pixel_offset
+        side = min(width, height)
+        left = (width - side) // 2
+        top = (height - side) // 2
+        right = left + side
+        bottom = top + side
         pil_img = pil_img.crop((left, top, right, bottom))
 
-        # Resize to fit the preview canvas
+        # Resize to a square preview (e.g., 360x360)
+        preview_size = 360
+        pil_img = pil_img.resize((preview_size, preview_size), Image.Resampling.NEAREST)
+
         self.preview_image = ImageTk.PhotoImage(pil_img)
-        self.preview_canvas.config(image=self.preview_image, width=720, height=360)
+        self.preview_canvas.config(image=self.preview_image, width=preview_size, height=preview_size)
         self.preview_canvas.image = self.preview_image
 
     def select_edition(self, edition):
