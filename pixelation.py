@@ -84,6 +84,9 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None):
         Processed PIL Image
     """
     import warnings
+
+    file_name = asset_name or os.path.basename(mask_file)
+
     # Extract alpha mask
     alpha_mask = image.split()[-1].convert("L")
     hard_alpha_mask = alpha_mask.point(lambda p: 255 if p > 0 else 0)
@@ -101,13 +104,13 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None):
         custom_mask.paste(hard_alpha_mask, (0, 0)) # Paste the original hard alpha mask
         final_image = Image.composite(pixelated, image, custom_mask)
         print(
-            f"[UNOFFICIAL RETRO PATCH] Pixelates {asset_name or os.path.basename(mask_file)} with mask..."
+            f"[UNOFFICIAL RETRO PATCH] Pixelates {file_name} with mask..."
         )
     else:
         # Use the alpha channel as a smooth mask for blending
         final_image = Image.composite(pixelated, image, hard_alpha_mask)
         if asset_name:
-            warnings.warn(f"[UNOFFICIAL RETRO PATCH] Pixelates {asset_name} without custom mask, using alpha channel as mask.")
+            warnings.warn(f"[UNOFFICIAL RETRO PATCH] Pixelates {file_name} without custom mask, using alpha channel as mask.")
 
     # Restore original alpha
     final_image.putalpha(alpha_mask)
