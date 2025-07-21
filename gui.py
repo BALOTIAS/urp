@@ -12,6 +12,8 @@ class RetroPixelatorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Unofficial Retro Patch")
+        self.root.geometry("1280x720")
+        self.root.minsize(800, 600)
         self.root.resizable(True, True)
 
         # Set the window icon
@@ -48,12 +50,41 @@ class RetroPixelatorGUI:
             self.editions = ["Stronghold Definitive Edition", "Stronghold Crusader Definitive Edition"]
         self.selected_edition = tk.StringVar(value=self.editions[0])
 
-        # Main container frame (now using grid for two columns)
-        main_frame = ttk.Frame(root, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # --- SCROLLABLE MAIN CONTENT ---
+        # Create a canvas and a vertical/horizontal scrollbar for scrolling
+        container = ttk.Frame(root)
+        container.pack(fill=tk.BOTH, expand=True)
+        canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0)
+        vscroll = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        hscroll = ttk.Scrollbar(container, orient="horizontal", command=canvas.xview)
+        canvas.configure(yscrollcommand=vscroll.set, xscrollcommand=hscroll.set)
+        vscroll.pack(side=tk.RIGHT, fill=tk.Y)
+        hscroll.pack(side=tk.BOTTOM, fill=tk.X)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Frame inside the canvas
+        main_frame = ttk.Frame(canvas, padding="10")
+        main_frame_id = canvas.create_window((0, 0), window=main_frame, anchor="nw")
         main_frame.columnconfigure(0, weight=1, uniform="col")
         main_frame.columnconfigure(1, weight=1, uniform="col")
         main_frame.rowconfigure(0, weight=1)
+
+        # Update scrollregion when the size of the frame changes
+        def on_frame_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        main_frame.bind("<Configure>", on_frame_configure)
+        # Make sure the canvas resizes the frame width to match the canvas width
+        def on_canvas_configure(event=None):
+            canvas.itemconfig(main_frame_id, width=canvas.winfo_width())
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # Mousewheel scrolling
+        def _on_mousewheel(event):
+            if event.state & 0x1:  # Shift pressed for horizontal scroll
+                canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+            else:
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas.bind_all("<Shift-MouseWheel>", _on_mousewheel)
 
         # LEFT COLUMN FRAME
         left_frame = ttk.Frame(main_frame)
