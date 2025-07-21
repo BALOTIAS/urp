@@ -60,18 +60,31 @@ def main():
     config = configparser.ConfigParser()
     config.read("config.ini")
 
-    source_folder = config.get(
-        "Stronghold Definitive Edition",
-        "debug_source_folder",
-        fallback="downloads/Stronghold Definitive Edition",
-    )
-    destination_folder = config.get(
-        "Stronghold Definitive Edition",
-        "debug_unpacked_folder",
-        fallback="downloads/unpacked",
+    unpack_all_assets(
+        config.get(
+            "Stronghold Definitive Edition",
+            "target_folder",
+            fallback="downloads/Stronghold Definitive Edition",
+        ),
+        config.get(
+            "Stronghold Definitive Edition",
+            "debug_unpacked_folder",
+            fallback="downloads/unpacked",
+        ),
     )
 
-    unpack_all_assets(source_folder, destination_folder)
+    unpack_all_assets(
+        config.get(
+            "Stronghold Crusader Definitive Edition",
+            "target_folder",
+            fallback="downloads/Stronghold Crusader Definitive Edition",
+        ),
+        config.get(
+            "Stronghold Crusader Definitive Edition",
+            "debug_unpacked_folder",
+            fallback="downloads/unpacked",
+        ),
+    )
 
     print("\n[DEBUG UNPACK ASSETS] Unpacking completed.")
 
