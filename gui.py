@@ -55,7 +55,6 @@ class RetroPixelatorGUI:
         logo_image = PhotoImage(file="assets/icon/urp.png")
         logo_label = ttk.Label(main_frame, image=logo_image)
         logo_label.image = logo_image
-        logo_label.pack()
 
         # Description section
         desc_frame = ttk.Frame(main_frame, padding="10")
