@@ -119,8 +119,6 @@ class RetroPixelatorGUI:
         self.preview_canvas.pack(padx=5, pady=5)
         self.preview_image = None
         self.preview_pil = None
-        self.load_placeholder_image()
-        self.update_preview()
 
         # Pixelation amount slider (now below preview)
         pixelation_frame = ttk.LabelFrame(main_frame, text="Pixelation Amount", padding="10")
@@ -137,6 +135,9 @@ class RetroPixelatorGUI:
         self.pixelation_slider.pack(fill=tk.X, padx=5, pady=5)
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
+
+        self.load_placeholder_image()
+        self.update_preview()
 
         # Game path section
         self.path_frame = ttk.LabelFrame(main_frame, text="Game Installation", padding="10")
