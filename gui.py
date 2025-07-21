@@ -60,7 +60,7 @@ class RetroPixelatorGUI:
         desc_frame = ttk.Frame(main_frame, padding="10")
         desc_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        desc_text = """The Unofficial Retro Patch applies a pixelated look to Stronghold,\ngiving it a more retro appearance that feels closer to the original game's art style.\nThis tool modifies the game's texture assets to create a nostalgic experience."""
+        desc_text = """The Unofficial Retro Patch applies a pixelated look to Stronghold,\ngiving it a more retro appearance that feels closer to the original game's art style.\nThis tool modifies the game's texture assets to create a nostalgic experience.\n\nStronghold Definitive Edition & Stronghold Crusader Definitive Edition Logos © Firefly Studios"""
 
         description = ttk.Label(
             desc_frame,
@@ -81,12 +81,13 @@ class RetroPixelatorGUI:
         # Load edition images (placeholder for second edition)
         self.edition_images = []
         edition_image_paths = [
-            "assets/icon/urp.png",  # For Stronghold Definitive Edition
-            "assets/icon/urp-small.png"  # Placeholder for Crusader
+            "assets/firefly/shde.png",
+            "assets/firefly/shcde.png"
         ]
         for path in edition_image_paths:
             if os.path.exists(path):
-                img = Image.open(path).resize((48, 48), Image.LANCZOS)
+                img = Image.open(path)
+                img.thumbnail((128,64), Image.Resampling.LANCZOS)
                 self.edition_images.append(ImageTk.PhotoImage(img))
             else:
                 self.edition_images.append(None)
@@ -99,7 +100,6 @@ class RetroPixelatorGUI:
             btn = tk.Button(
                 edition_buttons_frame,
                 image=self.edition_images[idx] if idx < len(self.edition_images) else None,
-                text=edition,
                 compound="top",
                 command=lambda e=edition: self.select_edition(e),
                 relief=tk.SUNKEN if self.selected_edition.get() == edition else tk.RAISED,
@@ -220,20 +220,46 @@ class RetroPixelatorGUI:
             self.refresh_backups()
 
     def load_placeholder_image(self):
-        # Use a built-in placeholder (gray square)
-        size = (128, 128)
-        img = Image.new("RGBA", size, (180, 180, 180, 255))
-        self.preview_pil = img
+        edition = self.selected_edition.get()
+
+        if edition == "Stronghold Definitive Edition":
+            placeholder_path = "assets/firefly/shde-screenshot.jpg"
+        elif edition == "Stronghold Crusader Definitive Edition":
+            placeholder_path = "assets/firefly/shcde-screenshot.jpg"
+        else:
+            placeholder_path = "assets/firefly/shde-screenshot.jpg"
+
+        if not os.path.exists(placeholder_path):
+            messagebox.showerror(
+                "Error", f"Placeholder image not found: {placeholder_path}"
+            )
+            return
+
+        self.preview_pil = Image.open(placeholder_path)
 
     def update_preview(self, event=None):
         value = self.pixelation_var.get()
-        self.pixelation_label.config(text=f"Pixelation: {value:.2f}")
+        # Adapt value to be rounded to two decimal places
+        value = round(value, 2)
+
+        self.pixelation_label.config(text=f"Pixelation: {value:.2f} (Recommended: 0.5)")
+
         # Apply pixelation to the placeholder image
         from pixelation import pixelate_image
         pil_img = pixelate_image(self.preview_pil, value)
-        pil_img = pil_img.resize((128, 128), Image.LANCZOS)
+
+        # Zoom into the center of the image
+        width, height = pil_img.size
+        pixel_offset = int(0.5 * min(width, height))
+        left = (width - pixel_offset) // 2
+        top = (height - pixel_offset) // 2
+        right = left + pixel_offset
+        bottom = top + pixel_offset
+        pil_img = pil_img.crop((left, top, right, bottom))
+
+        # Resize to fit the preview canvas
         self.preview_image = ImageTk.PhotoImage(pil_img)
-        self.preview_canvas.config(image=self.preview_image)
+        self.preview_canvas.config(image=self.preview_image, width=720, height=360)
         self.preview_canvas.image = self.preview_image
 
     def select_edition(self, edition):
@@ -243,6 +269,8 @@ class RetroPixelatorGUI:
         self.path_label.config(text=f"{edition} Installation Folder:")
         self.update_path_var_from_config()
         self.refresh_backups()
+        self.load_placeholder_image()
+        self.update_preview()
 
     def update_path_var_from_config(self):
         edition = self.selected_edition.get()
