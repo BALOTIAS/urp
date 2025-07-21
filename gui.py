@@ -5,6 +5,7 @@ from tkinter import filedialog, ttk, messagebox, PhotoImage
 import configparser
 from PIL import Image, ImageTk
 from main import pixelate_edition
+import threading
 
 
 class RetroPixelatorGUI:
@@ -47,38 +48,47 @@ class RetroPixelatorGUI:
             self.editions = ["Stronghold Definitive Edition", "Stronghold Crusader Definitive Edition"]
         self.selected_edition = tk.StringVar(value=self.editions[0])
 
-        # Main container frame
+        # Main container frame (now using grid for two columns)
         main_frame = ttk.Frame(root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.columnconfigure(0, weight=1, uniform="col")
+        main_frame.columnconfigure(1, weight=1, uniform="col")
+        main_frame.rowconfigure(0, weight=1)
 
-        # Logo section
-        logo_image = PhotoImage(file="assets/icon/urp.png")
-        logo_label = ttk.Label(main_frame, image=logo_image)
+        # LEFT COLUMN FRAME
+        left_frame = ttk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        # RIGHT COLUMN FRAME
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+
+        # --- LEFT COLUMN ---
+        # Logo (smaller if available)
+        logo_path = "assets/icon/urp-small.png" if os.path.exists("assets/icon/urp-small.png") else "assets/icon/urp.png"
+        logo_image = PhotoImage(file=logo_path)
+        logo_label = ttk.Label(left_frame, image=logo_image)
         logo_label.image = logo_image
+        logo_label.pack(pady=(0, 5))
 
-        # Description section
-        desc_frame = ttk.Frame(main_frame, padding="10")
-        desc_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        desc_text = """The Unofficial Retro Patch applies a pixelated look to Stronghold,\ngiving it a more retro appearance that feels closer to the original game's art style.\nThis tool modifies the game's texture assets to create a nostalgic experience.\n\nStronghold Definitive Edition & Stronghold Crusader Definitive Edition Logos © Firefly Studios"""
-
+        # Description
+        desc_text = ("The Unofficial Retro Patch applies a pixelated look to Stronghold,\n"
+                     "giving it a more retro appearance that feels closer to the original game's art style.\n"
+                     "This tool modifies the game's texture assets to create a nostalgic experience.\n\n"
+                     "Stronghold Definitive Edition & Stronghold Crusader Definitive Edition Logos © Firefly Studios")
         description = ttk.Label(
-            desc_frame,
-            image=logo_image,
+            left_frame,
             text=desc_text,
-            wraplength=550,
+            wraplength=300,
             justify="left",
             anchor="center",
-            compound="left",
         )
         description.pack(fill=tk.X, padx=5, pady=5)
 
-        # Edition selection as image buttons (moved below logo and description)
-        edition_frame = ttk.Frame(main_frame)
+        # Edition selection
+        edition_frame = ttk.Frame(left_frame)
         edition_frame.pack(fill=tk.X, padx=5, pady=5)
         ttk.Label(edition_frame, text="Select Stronghold Version:").pack(side=tk.TOP, anchor=tk.W, padx=(0, 5))
-
-        # Load edition images (placeholder for second edition)
         self.edition_images = []
         edition_image_paths = [
             "assets/firefly/shde.png",
@@ -87,13 +97,11 @@ class RetroPixelatorGUI:
         for path in edition_image_paths:
             if os.path.exists(path):
                 img = Image.open(path)
-                img.thumbnail((128,64), Image.Resampling.LANCZOS)
+                img.thumbnail((96,48), Image.Resampling.LANCZOS)
                 self.edition_images.append(ImageTk.PhotoImage(img))
             else:
                 self.edition_images.append(None)
-
         self.edition_buttons = []
-        # Use a frame for the buttons to control their width
         edition_buttons_frame = ttk.Frame(edition_frame)
         edition_buttons_frame.pack(fill=tk.X)
         for idx, edition in enumerate(self.editions):
@@ -103,24 +111,45 @@ class RetroPixelatorGUI:
                 compound="top",
                 command=lambda e=edition: self.select_edition(e),
                 relief=tk.SUNKEN if self.selected_edition.get() == edition else tk.RAISED,
-                width=1,  # width in characters, will be overridden by .place
-                height=70
+                width=1,
+                height=60
             )
             btn.grid(row=0, column=idx, sticky="nsew", padx=5)
             self.edition_buttons.append(btn)
         edition_buttons_frame.columnconfigure(0, weight=1)
         edition_buttons_frame.columnconfigure(1, weight=1)
 
-        # Preview area (moved above pixelation slider)
-        preview_frame = ttk.LabelFrame(main_frame, text="Preview", padding="10")
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Game path section
+        self.path_frame = ttk.LabelFrame(left_frame, text="Game Installation", padding="10")
+        self.path_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.path_label = ttk.Label(
+            self.path_frame, text=f"{self.selected_edition.get()} Installation Folder:"
+        )
+        self.path_label.pack(anchor=tk.W, padx=5)
+        path_select_frame = ttk.Frame(self.path_frame)
+        path_select_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.path_var = tk.StringVar()
+        self.update_path_var_from_config()
+        path_entry = ttk.Entry(path_select_frame, textvariable=self.path_var, width=30)
+        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        browse_btn = ttk.Button(
+            path_select_frame, text="Browse", command=self.browse_game_path
+        )
+        browse_btn.pack(side=tk.RIGHT)
+
+        # --- RIGHT COLUMN ---
+        # Preview area
+        preview_frame = ttk.LabelFrame(right_frame, text="Preview", padding="10")
+        preview_frame.pack(fill=tk.BOTH, expand=False, padx=5, pady=5)
         self.preview_canvas = tk.Label(preview_frame)
         self.preview_canvas.pack(padx=5, pady=5)
         self.preview_image = None
         self.preview_pil = None
+        self.load_placeholder_image()
+        self.update_preview()
 
-        # Pixelation amount slider (now below preview)
-        pixelation_frame = ttk.LabelFrame(main_frame, text="Pixelation Amount", padding="10")
+        # Pixelation amount slider
+        pixelation_frame = ttk.LabelFrame(right_frame, text="Pixelation Amount", padding="10")
         pixelation_frame.pack(fill=tk.X, padx=5, pady=5)
         self.pixelation_var = tk.DoubleVar(value=0.5)
         self.pixelation_slider = ttk.Scale(
@@ -135,85 +164,53 @@ class RetroPixelatorGUI:
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
 
-        self.load_placeholder_image()
-        self.update_preview()
-
-        # Game path section
-        self.path_frame = ttk.LabelFrame(main_frame, text="Game Installation", padding="10")
-        self.path_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        self.path_label = ttk.Label(
-            self.path_frame, text=f"{self.selected_edition.get()} Installation Folder:"
-        )
-        self.path_label.pack(anchor=tk.W, padx=5)
-
-        path_select_frame = ttk.Frame(self.path_frame)
-        path_select_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        self.path_var = tk.StringVar()
-        self.update_path_var_from_config()
-
-        path_entry = ttk.Entry(path_select_frame, textvariable=self.path_var, width=50)
-        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-
-        browse_btn = ttk.Button(
-            path_select_frame, text="Browse", command=self.browse_game_path
-        )
-        browse_btn.pack(side=tk.RIGHT)
-
-        # Actions section
-        actions_frame = ttk.LabelFrame(main_frame, text="Actions", padding="10")
-        actions_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # Pixelate button
-        pixelate_btn = ttk.Button(
-            actions_frame, text="Apply Pixelation", command=self.apply_pixelation
-        )
-        pixelate_btn.pack(fill=tk.X, padx=5, pady=5)
-
         # Backup management section
-        backup_frame = ttk.LabelFrame(
-            actions_frame, text="Backup Management", padding="10"
-        )
+        backup_frame = ttk.LabelFrame(right_frame, text="Backup Management", padding="10")
         backup_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
         self.backup_list = ttk.Treeview(
             backup_frame, columns=("file", "date"), show="headings"
         )
         self.backup_list.heading("file", text="Asset File")
         self.backup_list.heading("date", text="Backup Date")
-        self.backup_list.column("file", width=250)
-        self.backup_list.column("date", width=200)
+        self.backup_list.column("file", width=180)
+        self.backup_list.column("date", width=120)
         self.backup_list.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 5))
-
-        # Add scrollbar to the backup list
         scrollbar = ttk.Scrollbar(
             backup_frame, orient=tk.VERTICAL, command=self.backup_list.yview
         )
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.backup_list.configure(yscrollcommand=scrollbar.set)
-
-        # Backup actions frame
-        backup_actions = ttk.Frame(actions_frame, padding="5")
+        backup_actions = ttk.Frame(right_frame, padding="5")
         backup_actions.pack(fill=tk.X, padx=5, pady=5)
-
         refresh_btn = ttk.Button(
             backup_actions, text="Refresh Backup List", command=self.refresh_backups
         )
         refresh_btn.pack(side=tk.LEFT, padx=(0, 5))
-
         restore_btn = ttk.Button(
             backup_actions, text="Restore Selected Backup", command=self.restore_backup
         )
         restore_btn.pack(side=tk.LEFT)
 
-        # Status bar
+        # --- FOOTER ---
+        footer = ttk.Frame(root, padding="5")
+        footer.pack(side=tk.BOTTOM, fill=tk.X)
+        # Console output/status
         self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
+        self.status_var.set("Ready. If the GUI becomes unresponsive during pixelation, please wait until the operation completes.")
         status_bar = ttk.Label(
-            root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
+            footer, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
         )
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        # Restore backup button
+        footer_restore_btn = ttk.Button(
+            footer, text="Restore Backup", command=self.restore_backup
+        )
+        footer_restore_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        # Apply pixelation button
+        footer_pixelate_btn = ttk.Button(
+            footer, text="Apply Pixelation", command=self.apply_pixelation_threaded
+        )
+        footer_pixelate_btn.pack(side=tk.RIGHT, padx=(5, 0))
 
         # Load backup list if path already set
         if self.path_var.get():
@@ -362,29 +359,29 @@ class RetroPixelatorGUI:
         except:
             return "Unknown"
 
-    def apply_pixelation(self):
-        game_path = self.path_var.get()
-        if not game_path or not os.path.exists(game_path):
-            messagebox.showerror(
-                "Error", "Please select a valid game installation path first."
-            )
-            return
-        edition = self.selected_edition.get()
-        if not self.config.has_section(edition):
-            self.config.add_section(edition)
-        self.config.set(edition, "target_folder", game_path)
-        with open("config.ini", "w") as configfile:
-            self.config.write(configfile)
-        self.status_var.set("Applying pixelation... This may take a while")
-        self.root.update()
-        try:
-            pixelate_edition(edition)
-            messagebox.showinfo("Success", "Pixelation has been applied successfully!")
-            self.refresh_backups()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to apply pixelation: {str(e)}")
-        finally:
-            self.status_var.set("Ready")
+    def apply_pixelation_threaded(self):
+        # Run pixelation in a background thread to keep GUI responsive
+        def worker():
+            game_path = self.path_var.get()
+            if not game_path or not os.path.exists(game_path):
+                self.status_var.set("Error: Please select a valid game installation path first.")
+                return
+            edition = self.selected_edition.get()
+            if not self.config.has_section(edition):
+                self.config.add_section(edition)
+            self.config.set(edition, "target_folder", game_path)
+            with open("config.ini", "w") as configfile:
+                self.config.write(configfile)
+            self.status_var.set("Applying pixelation... This may take a while")
+            try:
+                pixelate_edition(edition)
+                self.status_var.set("Pixelation has been applied successfully!")
+                self.refresh_backups()
+            except Exception as e:
+                self.status_var.set(f"Failed to apply pixelation: {str(e)}")
+            finally:
+                self.root.after(1000, lambda: self.status_var.set("Ready"))
+        threading.Thread(target=worker, daemon=True).start()
 
     def restore_backup(self):
         selected_items = self.backup_list.selection()
