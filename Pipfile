@@ -4,11 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-unitypy = ">=1.22.5"
+unitypy = ">=1.23"
 load-dotenv = "*"
 
 [dev-packages]
 ruff = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3.13"
