@@ -145,8 +145,8 @@ class RetroPixelatorGUI:
         self.preview_canvas.pack(padx=5, pady=5)
         self.preview_image = None
         self.preview_pil = None
-        self.load_placeholder_image()
-        self.update_preview()
+        # self.load_placeholder_image()  # <-- move this
+        # self.update_preview()          # <-- move this
 
         # Pixelation amount slider
         pixelation_frame = ttk.LabelFrame(right_frame, text="Pixelation Amount", padding="10")
@@ -163,6 +163,10 @@ class RetroPixelatorGUI:
         self.pixelation_slider.pack(fill=tk.X, padx=5, pady=5)
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
+
+        # Now safe to call preview methods
+        self.load_placeholder_image()
+        self.update_preview()
 
         # Backup management section
         backup_frame = ttk.LabelFrame(right_frame, text="Backup Management", padding="10")
