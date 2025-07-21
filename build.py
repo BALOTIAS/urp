@@ -54,6 +54,14 @@ def build_executable():
     # Main script to execute
     cmd.append("gui.py")
 
+    # --- UNITYPY RESOURCES PATCH ---
+    # If UnityPy uses a 'resources' directory or other data files, you must include them here.
+    # Example (uncomment and adjust the path if needed):
+    # cmd.append("--add-data=venv/Lib/site-packages/UnityPy/resources;UnityPy/resources")
+    # On Linux/Mac, use ':' instead of ';' as the separator.
+    # If you get 'No module named UnityPy.resources' at runtime, locate the resources directory in your UnityPy installation and add it here.
+    # --------------------------------
+
     print(f"Running command: {' '.join(cmd)}")
 
     # Make sure dist directory exists
