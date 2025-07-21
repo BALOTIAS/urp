@@ -64,26 +64,26 @@ class RetroPixelatorGUI:
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
         # --- LEFT COLUMN ---
-        # Logo (smaller if available)
+        # Logo and Description side by side
+        logo_desc_frame = ttk.Frame(left_frame)
+        logo_desc_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
         logo_path = "assets/icon/urp-small.png" if os.path.exists("assets/icon/urp-small.png") else "assets/icon/urp.png"
         logo_image = PhotoImage(file=logo_path)
-        logo_label = ttk.Label(left_frame, image=logo_image)
+        logo_label = ttk.Label(logo_desc_frame, image=logo_image)
         logo_label.image = logo_image
-        logo_label.pack(pady=(0, 5))
-
-        # Description
+        logo_label.pack(side=tk.LEFT, padx=(0, 10), pady=0)
         desc_text = ("The Unofficial Retro Patch applies a pixelated look to Stronghold,\n"
                      "giving it a more retro appearance that feels closer to the original game's art style.\n"
                      "This tool modifies the game's texture assets to create a nostalgic experience.\n\n"
                      "Stronghold Definitive Edition & Stronghold Crusader Definitive Edition Logos © Firefly Studios")
         description = ttk.Label(
-            left_frame,
+            logo_desc_frame,
             text=desc_text,
-            wraplength=300,
+            wraplength=220,
             justify="left",
             anchor="center",
         )
-        description.pack(fill=tk.X, padx=5, pady=5)
+        description.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=0)
 
         # Edition selection
         edition_frame = ttk.Frame(left_frame)
@@ -137,6 +137,33 @@ class RetroPixelatorGUI:
         )
         browse_btn.pack(side=tk.RIGHT)
 
+        # Backup management section (moved from right column)
+        backup_frame = ttk.LabelFrame(left_frame, text="Backup Management", padding="10")
+        backup_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.backup_list = ttk.Treeview(
+            backup_frame, columns=("file", "date"), show="headings"
+        )
+        self.backup_list.heading("file", text="Asset File")
+        self.backup_list.heading("date", text="Backup Date")
+        self.backup_list.column("file", width=180)
+        self.backup_list.column("date", width=120)
+        self.backup_list.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 5))
+        scrollbar = ttk.Scrollbar(
+            backup_frame, orient=tk.VERTICAL, command=self.backup_list.yview
+        )
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.backup_list.configure(yscrollcommand=scrollbar.set)
+        backup_actions = ttk.Frame(left_frame, padding="5")
+        backup_actions.pack(fill=tk.X, padx=5, pady=5)
+        refresh_btn = ttk.Button(
+            backup_actions, text="Refresh Backup List", command=self.refresh_backups
+        )
+        refresh_btn.pack(side=tk.LEFT, padx=(0, 5))
+        restore_btn = ttk.Button(
+            backup_actions, text="Restore Selected Backup", command=self.restore_backup
+        )
+        restore_btn.pack(side=tk.LEFT)
+
         # --- RIGHT COLUMN ---
         # Preview area
         preview_frame = ttk.LabelFrame(right_frame, text="Preview", padding="10")
@@ -145,8 +172,6 @@ class RetroPixelatorGUI:
         self.preview_canvas.pack(padx=5, pady=5)
         self.preview_image = None
         self.preview_pil = None
-        # self.load_placeholder_image()  # <-- move this
-        # self.update_preview()          # <-- move this
 
         # Pixelation amount slider
         pixelation_frame = ttk.LabelFrame(right_frame, text="Pixelation Amount", padding="10")
@@ -167,58 +192,6 @@ class RetroPixelatorGUI:
         # Now safe to call preview methods
         self.load_placeholder_image()
         self.update_preview()
-
-        # Backup management section
-        backup_frame = ttk.LabelFrame(right_frame, text="Backup Management", padding="10")
-        backup_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.backup_list = ttk.Treeview(
-            backup_frame, columns=("file", "date"), show="headings"
-        )
-        self.backup_list.heading("file", text="Asset File")
-        self.backup_list.heading("date", text="Backup Date")
-        self.backup_list.column("file", width=180)
-        self.backup_list.column("date", width=120)
-        self.backup_list.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=(0, 5))
-        scrollbar = ttk.Scrollbar(
-            backup_frame, orient=tk.VERTICAL, command=self.backup_list.yview
-        )
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.backup_list.configure(yscrollcommand=scrollbar.set)
-        backup_actions = ttk.Frame(right_frame, padding="5")
-        backup_actions.pack(fill=tk.X, padx=5, pady=5)
-        refresh_btn = ttk.Button(
-            backup_actions, text="Refresh Backup List", command=self.refresh_backups
-        )
-        refresh_btn.pack(side=tk.LEFT, padx=(0, 5))
-        restore_btn = ttk.Button(
-            backup_actions, text="Restore Selected Backup", command=self.restore_backup
-        )
-        restore_btn.pack(side=tk.LEFT)
-
-        # --- FOOTER ---
-        footer = ttk.Frame(root, padding="5")
-        footer.pack(side=tk.BOTTOM, fill=tk.X)
-        # Console output/status
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready. If the GUI becomes unresponsive during pixelation, please wait until the operation completes.")
-        status_bar = ttk.Label(
-            footer, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
-        )
-        status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        # Restore backup button
-        footer_restore_btn = ttk.Button(
-            footer, text="Restore Backup", command=self.restore_backup
-        )
-        footer_restore_btn.pack(side=tk.RIGHT, padx=(5, 0))
-        # Apply pixelation button
-        footer_pixelate_btn = ttk.Button(
-            footer, text="Apply Pixelation", command=self.apply_pixelation_threaded
-        )
-        footer_pixelate_btn.pack(side=tk.RIGHT, padx=(5, 0))
-
-        # Load backup list if path already set
-        if self.path_var.get():
-            self.refresh_backups()
 
     def load_placeholder_image(self):
         edition = self.selected_edition.get()
