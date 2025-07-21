@@ -12,7 +12,7 @@ class RetroPixelatorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Unofficial Retro Patch")
-        self.root.geometry("1280x720")
+        self.root.geometry("1280x840")
         self.root.minsize(800, 600)
         self.root.resizable(True, True)
 
@@ -106,7 +106,7 @@ class RetroPixelatorGUI:
         desc_text = ("The Unofficial Retro Patch applies a pixelated look to Stronghold,\n"
                      "giving it a more retro appearance that feels closer to the original game's art style.\n"
                      "This tool modifies the game's texture assets to create a nostalgic experience.\n\n"
-                     "Stronghold Definitive Edition & Stronghold Crusader Definitive Edition Logos © Firefly Studios")
+                     "Stronghold Definitive Edition &\nStronghold Crusader Definitive Edition © Firefly Studios")
         description = ttk.Label(
             logo_desc_frame,
             text=desc_text,
@@ -249,10 +249,6 @@ class RetroPixelatorGUI:
             footer, text="Apply Pixelation", command=self.apply_pixelation_threaded
         )
         footer_pixelate_btn.pack(side=tk.RIGHT, padx=(5, 0))
-        footer_restore_btn = ttk.Button(
-            footer, text="Restore Backup", command=self.restore_backup
-        )
-        footer_restore_btn.pack(side=tk.RIGHT, padx=(5, 0))
 
     def load_placeholder_image(self):
         edition = self.selected_edition.get()
@@ -286,18 +282,14 @@ class RetroPixelatorGUI:
         # Make preview square (crop to square center)
         width, height = pil_img.size
         side = min(width, height)
-        left = (width - side) // 2
+        left = (width - side) // 1.8
         top = (height - side) // 2
         right = left + side
         bottom = top + side
         pil_img = pil_img.crop((left, top, right, bottom))
 
-        # Resize to a square preview (e.g., 360x360)
-        preview_size = 360
-        pil_img = pil_img.resize((preview_size, preview_size), Image.Resampling.NEAREST)
-
         self.preview_image = ImageTk.PhotoImage(pil_img)
-        self.preview_canvas.config(image=self.preview_image, width=preview_size, height=preview_size)
+        self.preview_canvas.config(image=self.preview_image, width=560, height=560)
         self.preview_canvas.image = self.preview_image
 
     def select_edition(self, edition):
