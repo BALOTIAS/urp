@@ -56,6 +56,22 @@ def build_executable():
         print("Warning: UnityPy package not found in current environment. Make sure it is installed.")
     # --------------------------------
 
+    # --- ARCHSPEC DATA PATCH ---
+    # Dynamically find archspec data directory and add to PyInstaller if it exists
+    archspec_spec = importlib.util.find_spec("archspec")
+    if archspec_spec and archspec_spec.submodule_search_locations:
+        archspec_dir = archspec_spec.submodule_search_locations[0]
+        json_dir = os.path.join(archspec_dir, "json")
+        if os.path.exists(json_dir):
+            sep = ";" if platform.system() == "Windows" else ":"
+            cmd.append(f"--add-data={json_dir}{sep}archspec/json")
+            print(f"Added archspec data: {json_dir}")
+        else:
+            print("Warning: archspec data directory (json) not found. If you get missing file errors at runtime, check your archspec installation.")
+    else:
+        print("Warning: archspec package not found in current environment. Make sure it is installed.")
+    # --------------------------------
+
     cmd.append("gui.py")
     print(f"Running command: {' '.join(cmd)}")
     os.makedirs("dist", exist_ok=True)
