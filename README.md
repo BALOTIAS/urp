@@ -25,6 +25,8 @@ The Unofficial Retro Patch (URP) is a modification tool designed to selectively 
 
 ## Installation
 
+### For Users
+
 1. Clone this repository:
     ```
     git clone https://github.com/BALOTIAS/urp.git
@@ -46,6 +48,25 @@ The Unofficial Retro Patch (URP) is a modification tool designed to selectively 
     ```
 
 4. Configure the `.env` file with your game's file paths and pixelation settings.
+
+### For Developers
+
+1. Clone and install in development mode:
+    ```
+    git clone https://github.com/BALOTIAS/urp.git
+    cd urp
+    make install
+    ```
+
+2. Install pre-commit hooks:
+    ```
+    pre-commit install
+    ```
+
+3. Run tests:
+    ```
+    make test
+    ```
 
 ## Usage
 
@@ -86,6 +107,55 @@ Masks are grayscale PNG files that control where pixelation is applied:
 - Gray areas will be partially pixelated
 
 Place mask files in the `masks` folder with the same folder structure as the original textures, e.g. `masks/Stronghold Definitive Edition/resources.assets/AllTileSprites.png`.
+
+## Development
+
+### Version Management
+
+This project uses semantic versioning and automated release management. To create a new release:
+
+1. **Bump version and create release:**
+   ```bash
+   make release-patch    # For bug fixes
+   make release-minor    # For new features
+   make release-major    # For breaking changes
+   ```
+
+2. **Manual version bumping:**
+   ```bash
+   python version.py bump --type patch|minor|major
+   ```
+
+3. **Create release with GitHub integration:**
+   ```bash
+   python version.py release --type patch --create-release
+   ```
+
+### Development Workflow
+
+- **Run all checks:** `make check`
+- **Format code:** `make format`
+- **Run tests:** `make test`
+- **Lint code:** `make lint`
+- **Build package:** `make build`
+- **Clean artifacts:** `make clean`
+
+### Commit Convention
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `refactor:` - Code refactoring
+- `test:` - Test additions/changes
+- `chore:` - Maintenance tasks
+
+### CI/CD
+
+- **CI:** Runs on every push and pull request
+- **Releases:** Automatically triggered by version tags
+- **PyPI:** Automatic upload on release
 
 ## License
 
