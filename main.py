@@ -131,6 +131,12 @@ def pixelate_edition(edition_name: str, logger=None):
             total_textures = sum(1 for obj in env.objects if obj.type.name == "Texture2D")
             processed_textures = 0
 
+            # Get total number of textures to process across all asset files
+            total_asset_files = len(pixelate_asset_files)
+            current_asset_file_index = list(pixelate_asset_files.keys()).index(asset_file) + 1
+            
+            logger(f"[UNOFFICIAL RETRO PATCH] Processing asset file {current_asset_file_index}/{total_asset_files}: {os.path.basename(asset_file)}")
+
             for obj in env.objects:
                 if obj.type.name == "Texture2D":
                     pixelate_entries = pixelate_asset_files[asset_file]
@@ -150,7 +156,7 @@ def pixelate_edition(edition_name: str, logger=None):
                                 continue
 
                             if hasattr(data, "image"):
-                                logger(f"[UNOFFICIAL RETRO PATCH] Pixelating {asset_name} in {asset_file} ({processed_textures+1}/{total_textures})")
+                                logger(f"[UNOFFICIAL RETRO PATCH] Pixelating texture {processed_textures+1}/{total_textures}: {asset_name}")
                                 data.image = process_image(
                                     image=data.image,
                                     resize_amount=resize_amount,
