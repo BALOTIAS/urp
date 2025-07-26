@@ -175,6 +175,8 @@ def pixelate_edition(edition_name: str, logger=None):
 
             # Process textures sequentially for now (simpler and more reliable)
             processed_textures = 0
+            modified_objects = []  # Track which objects were modified
+            
             for obj, pixelate_entry, asset_file in texture_data_list:
                 asset_dir, asset, asset_name, asset_ext, mask_file = pixelate_entry.values()
                 
@@ -196,6 +198,7 @@ def pixelate_edition(edition_name: str, logger=None):
                             asset_name=asset_name,
                         )
                         data.save()
+                        modified_objects.append(obj)  # Track that this object was modified
                         
                         logger(f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}")
                         
@@ -215,33 +218,59 @@ def pixelate_edition(edition_name: str, logger=None):
             
             if processed_textures == 0:
                 logger(f"[UNOFFICIAL RETRO PATCH] No textures to process in {asset_file}")
+            else:
+                logger(f"[UNOFFICIAL RETRO PATCH] Modified {len(modified_objects)} objects in {asset_file}")
 
             # Save the modified asset file
             modified_asset_file = asset_file + ".tmp"
-            with open(modified_asset_file, "wb") as f:
-                f.write(env.file.save())
+            try:
+                logger(f"[UNOFFICIAL RETRO PATCH] Saving modified asset file to: {modified_asset_file}")
+                with open(modified_asset_file, "wb") as f:
+                    f.write(env.file.save())
+                
+                # Verify the temp file was created
+                if os.path.exists(modified_asset_file):
+                    file_size = os.path.getsize(modified_asset_file)
+                    logger(f"[UNOFFICIAL RETRO PATCH] Temporary file created: {modified_asset_file} ({file_size} bytes)")
+                else:
+                    raise Exception("Temporary file was not created")
+                
+                # Explicitly release UnityPy objects and collect garbage
+                del env
+                gc.collect()
+                
+                # Small delay to allow memory to be freed
+                time.sleep(0.1)
 
-            # Explicitly release UnityPy objects and collect garbage
-            del env
-            gc.collect()
-            
-            # Small delay to allow memory to be freed
-            time.sleep(0.1)
-
-            # Backup original and replace
-            backup_no = 1
-            backup_file = f"{asset_file}.backup{backup_no:03}"
-            while os.path.exists(backup_file):
-                backup_no += 1
+                # Backup original and replace
+                backup_no = 1
                 backup_file = f"{asset_file}.backup{backup_no:03}"
+                while os.path.exists(backup_file):
+                    backup_no += 1
+                    backup_file = f"{asset_file}.backup{backup_no:03}"
 
-            os.rename(asset_file, backup_file)
-            os.rename(modified_asset_file, asset_file)
+                logger(f"[UNOFFICIAL RETRO PATCH] Creating backup: {asset_file} -> {backup_file}")
+                # Create backup first
+                os.rename(asset_file, backup_file)
+                
+                logger(f"[UNOFFICIAL RETRO PATCH] Replacing original with modified file: {modified_asset_file} -> {asset_file}")
+                # Then replace with modified file
+                os.rename(modified_asset_file, asset_file)
 
-            logger(
-                f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
-            )
-            log_memory_usage(logger)
+                logger(
+                    f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
+                )
+                log_memory_usage(logger)
+            except Exception as e:
+                # If something went wrong, try to restore the original file
+                if os.path.exists(modified_asset_file):
+                    try:
+                        os.remove(modified_asset_file)
+                        logger(f"[UNOFFICIAL RETRO PATCH] Cleaned up temporary file: {modified_asset_file}")
+                    except:
+                        pass
+                warnings.warn(f"Failed to save modified asset file '{asset_file}': {e}")
+                continue
         except Exception as e:
             warnings.warn(
                 f"[UNOFFICIAL RETRO PATCH] Failed to load asset file '{asset_file}': {e}"
