@@ -168,11 +168,23 @@ def pixelate_edition(edition_name: str, logger=None):
             texture_data_list = []
             for obj in env.objects:
                 if obj.type.name == "Texture2D":
-                    for pixelate_entry in pixelate_asset_files[asset_file]:
-                        asset_dir, asset, asset_name, asset_ext, mask_file = (
-                            pixelate_entry.values()
-                        )
-                        texture_data_list.append((obj, pixelate_entry, asset_file))
+                    # Read the object data to get the name
+                    try:
+                        data = obj.read()
+                        if hasattr(data, "m_Name"):
+                            obj_name = data.m_Name
+                            # Check if this object matches any of the textures we need to process
+                            for pixelate_entry in pixelate_asset_files[asset_file]:
+                                asset_dir, asset, asset_name, asset_ext, mask_file = (
+                                    pixelate_entry.values()
+                                )
+                                # Only add if the names match
+                                if obj_name == asset_name:
+                                    texture_data_list.append((obj, pixelate_entry, asset_file))
+                                    break  # Found a match, no need to check other entries
+                    except Exception as e:
+                        warnings.warn(f"Failed to read object name: {e}")
+                        continue
 
             # Process textures in parallel with progress callback
             def progress_callback(current, total):
@@ -183,15 +195,20 @@ def pixelate_edition(edition_name: str, logger=None):
                 current_total = base_count + current
                 logger(f"[UNOFFICIAL RETRO PATCH] Pixelating texture {current_total}/{total_textures_across_files}")
             
-            processed_results = process_texture_batch(
-                texture_data_list, 
-                resize_amount, 
-                logger, 
-                progress_callback
-            )
-            
-            processed_textures = len(processed_results)
-            processed_textures_total += processed_textures
+            # Only process if there are textures to process
+            if texture_data_list:
+                processed_results = process_texture_batch(
+                    texture_data_list, 
+                    resize_amount, 
+                    logger, 
+                    progress_callback
+                )
+                
+                processed_textures = len(processed_results)
+                processed_textures_total += processed_textures
+            else:
+                processed_textures = 0
+                logger(f"[UNOFFICIAL RETRO PATCH] No textures to process in {asset_file}")
 
             # Save the modified asset file
             modified_asset_file = asset_file + ".tmp"
@@ -251,10 +268,8 @@ def process_texture_batch(texture_data_list, resize_amount, logger=None, progres
         asset_dir, asset, asset_name, asset_ext, mask_file = pixelate_entry.values()
         
         try:
+            # We already read the object during preparation, so we know it matches
             data = obj.read()
-            
-            if not hasattr(data, "m_Name") or not data.m_Name == asset_name:
-                return None
             
             if hasattr(data, "image"):
                 data.image = process_image(
@@ -279,28 +294,45 @@ def process_texture_batch(texture_data_list, resize_amount, logger=None, progres
     # Limit workers to avoid memory issues - reduce for large textures
     max_workers = min(2, total_count)  # Reduced to 2 workers to manage memory better
     
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_texture = {
-            executor.submit(process_single_texture, texture_data): texture_data 
-            for texture_data in texture_data_list
-        }
-        
-        # Process completed tasks
-        for future in as_completed(future_to_texture):
-            result = future.result()
-            processed_count += 1
-            
-            if result:
-                obj, asset_name, asset_file = result
-                results.append((obj, asset_name, asset_file))
-                logger(f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}")
-            
-            # Update progress every few textures to avoid GUI spam
-            if processed_count % max(1, total_count // 10) == 0 or processed_count == total_count:
-                if progress_callback:
-                    progress_callback(processed_count, total_count)
+    logger(f"[UNOFFICIAL RETRO PATCH] Processing {total_count} textures with {max_workers} workers")
     
+    # Process in smaller batches for better memory management
+    batch_size = max(1, total_count // max_workers)
+    results = []
+    
+    for i in range(0, total_count, batch_size):
+        batch = texture_data_list[i:i + batch_size]
+        batch_num = i // batch_size + 1
+        total_batches = (total_count + batch_size - 1) // batch_size
+        
+        logger(f"[UNOFFICIAL RETRO PATCH] Processing batch {batch_num}/{total_batches} ({len(batch)} textures)")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit batch tasks
+            future_to_texture = {
+                executor.submit(process_single_texture, texture_data): texture_data 
+                for texture_data in batch
+            }
+            
+            # Process completed tasks in this batch
+            for future in as_completed(future_to_texture):
+                result = future.result()
+                processed_count += 1
+                
+                if result:
+                    obj, asset_name, asset_file = result
+                    results.append((obj, asset_name, asset_file))
+                    logger(f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}")
+                
+                # Update progress every few textures to avoid GUI spam
+                if processed_count % max(1, total_count // 10) == 0 or processed_count == total_count:
+                    if progress_callback:
+                        progress_callback(processed_count, total_count)
+        
+        # Small delay between batches to allow memory cleanup
+        time.sleep(0.05)
+    
+    logger(f"[UNOFFICIAL RETRO PATCH] Completed processing {len(results)} textures")
     return results
 
 
