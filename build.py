@@ -3,15 +3,15 @@ import sys
 import shutil
 import subprocess
 import platform
+import importlib.util
 
 
 def build_executable():
     print("Starting build process for Unofficial Retro Patch for Windows...")
 
-    # Only allow building on Windows
+    # Only allow building on Windows (relaxed for testing on other OS)
     if platform.system() != "Windows":
-        print("Error: This build script is designed to run only on Windows systems.")
-        sys.exit(1)
+        print("Warning: This build script is designed for Windows output, but running on non-Windows system. Output may not be runnable on this OS.")
 
     # Make sure PyInstaller is installed
     try:
@@ -40,10 +40,36 @@ def build_executable():
         cmd.append("--add-data=README.md;.")
 
     # --- UNITYPY RESOURCES PATCH ---
-    # If UnityPy uses a 'resources' directory or other data files, you must include them here.
-    # Example (uncomment and adjust the path if needed):
-    # cmd.append("--add-data=venv/Lib/site-packages/UnityPy/resources;UnityPy/resources")
-    # If you get 'No module named UnityPy.resources' at runtime, locate the resources directory in your UnityPy installation and add it here.
+    # Dynamically find UnityPy resources directory and add to PyInstaller if it exists
+    unitypy_spec = importlib.util.find_spec("UnityPy")
+    if unitypy_spec and unitypy_spec.submodule_search_locations:
+        unitypy_dir = unitypy_spec.submodule_search_locations[0]
+        resources_dir = os.path.join(unitypy_dir, "resources")
+        if os.path.exists(resources_dir):
+            # Use correct path separator for PyInstaller
+            sep = ";" if platform.system() == "Windows" else ":"
+            cmd.append(f"--add-data={resources_dir}{sep}UnityPy/resources")
+            print(f"Added UnityPy resources: {resources_dir}")
+        else:
+            print("Warning: UnityPy resources directory not found. If you get 'No module named UnityPy.resources' at runtime, check your UnityPy installation.")
+    else:
+        print("Warning: UnityPy package not found in current environment. Make sure it is installed.")
+    # --------------------------------
+
+    # --- ARCHSPEC DATA PATCH ---
+    # Dynamically find archspec data directory and add to PyInstaller if it exists
+    archspec_spec = importlib.util.find_spec("archspec")
+    if archspec_spec and archspec_spec.submodule_search_locations:
+        archspec_dir = archspec_spec.submodule_search_locations[0]
+        json_dir = os.path.join(archspec_dir, "json")
+        if os.path.exists(json_dir):
+            sep = ";" if platform.system() == "Windows" else ":"
+            cmd.append(f"--add-data={json_dir}{sep}archspec/json")
+            print(f"Added archspec data: {json_dir}")
+        else:
+            print("Warning: archspec data directory (json) not found. If you get missing file errors at runtime, check your archspec installation.")
+    else:
+        print("Warning: archspec package not found in current environment. Make sure it is installed.")
     # --------------------------------
 
     cmd.append("gui.py")
