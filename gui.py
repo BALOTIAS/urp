@@ -434,10 +434,10 @@ class RetroPixelatorGUI:
             def gui_logger(msg):
                 # Use root.after() for thread-safe GUI updates
                 self.root.after(0, lambda: self.status_var.set(str(msg)))
-                # Update progress based on message content
+                # Update progress based on message content with throttling
                 if "Pixelating texture" in str(msg) and "/" in str(msg):
                     try:
-                        # Extract progress from message like "Pixelating texture 1/5: name"
+                        # Extract progress from message like "Pixelating texture 1/5"
                         msg_str = str(msg)
                         # Find the part with numbers like "1/5"
                         import re
@@ -445,7 +445,9 @@ class RetroPixelatorGUI:
                         if match:
                             current, total = map(int, match.groups())
                             progress_percent = (current / total) * 100
-                            self.root.after(0, lambda: self.progress_var.set(progress_percent))
+                            # Throttle progress updates to every 5% or every texture if less than 20 total
+                            if total <= 20 or current % max(1, total // 20) == 0 or current == total:
+                                self.root.after(0, lambda: self.progress_var.set(progress_percent))
                     except:
                         pass  # If parsing fails, just continue
             

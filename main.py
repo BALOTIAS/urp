@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 from unitypy_fixes import patch_unitypy
 from pixelation import process_image
 import gc
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import psutil
 
 
 load_dotenv()
@@ -15,6 +19,19 @@ DEBUG_ENABLED = os.getenv("DEBUG_ENABLED", "False").lower() in ("true", "1", "ye
 patch_unitypy()
 
 
+def log_memory_usage(logger=None):
+    """Log current memory usage for debugging."""
+    if logger is None:
+        logger = print
+    try:
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / 1024 / 1024
+        logger(f"[UNOFFICIAL RETRO PATCH] Memory usage: {memory_mb:.1f} MB")
+    except ImportError:
+        pass  # psutil not available
+
+
 def pixelate_edition(edition_name: str, logger=None):
     if logger is None:
         logger = print
@@ -22,6 +39,7 @@ def pixelate_edition(edition_name: str, logger=None):
     config.read("config.ini")
 
     logger(f"\n[UNOFFICIAL RETRO PATCH] Pixelating edition: {edition_name}")
+    log_memory_usage(logger)
 
     target_folder = os.getenv(
         f"{edition_name.upper().replace(' ', '_')}_TARGET_FOLDER"
@@ -74,7 +92,7 @@ def pixelate_edition(edition_name: str, logger=None):
         )
     )
     if len(pixelate_files) == 0:
-        print(f"[UNOFFICIAL RETRO PATCH] No files to pixelate for {edition_name}.")
+        logger(f"[UNOFFICIAL RETRO PATCH] No files to pixelate for {edition_name}.")
         return
 
     # Group pixelate_files by their directory,
@@ -111,6 +129,15 @@ def pixelate_edition(edition_name: str, logger=None):
             }
         )
 
+    # Calculate total textures across all asset files for overall progress
+    total_textures_across_files = 0
+    for asset_file in pixelate_asset_files:
+        total_textures_across_files += len(pixelate_asset_files[asset_file])
+    
+    processed_textures_total = 0
+    logger(f"[UNOFFICIAL RETRO PATCH] Total textures to process: {total_textures_across_files}")
+    log_memory_usage(logger)
+
     for asset_file in pixelate_asset_files:
         try:
             # --- Restore latest backup if it exists ---
@@ -137,56 +164,34 @@ def pixelate_edition(edition_name: str, logger=None):
             
             logger(f"[UNOFFICIAL RETRO PATCH] Processing asset file {current_asset_file_index}/{total_asset_files}: {os.path.basename(asset_file)}")
 
+            # Prepare data for parallel processing
+            texture_data_list = []
             for obj in env.objects:
                 if obj.type.name == "Texture2D":
-                    pixelate_entries = pixelate_asset_files[asset_file]
-
-                    for pixelate_entry in pixelate_entries:
+                    for pixelate_entry in pixelate_asset_files[asset_file]:
                         asset_dir, asset, asset_name, asset_ext, mask_file = (
                             pixelate_entry.values()
                         )
+                        texture_data_list.append((obj, pixelate_entry, asset_file))
 
-                        try:
-                            data = obj.read()
-
-                            if (
-                                not hasattr(data, "m_Name")
-                                or not data.m_Name == asset_name
-                            ):
-                                continue
-
-                            if hasattr(data, "image"):
-                                logger(f"[UNOFFICIAL RETRO PATCH] Pixelating texture {processed_textures+1}/{total_textures}: {asset_name}")
-                                data.image = process_image(
-                                    image=data.image,
-                                    resize_amount=resize_amount,
-                                    mask_file=mask_file,
-                                    asset_name=asset_name,
-                                )
-                                data.save()
-                                processed_textures += 1
-
-                                logger(
-                                    f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}"
-                                )
-
-                                if DEBUG_ENABLED:
-                                    debug_path = os.path.join(
-                                        debug_pixelated_folder, asset_dir, asset
-                                    )
-                                    os.makedirs(
-                                        os.path.dirname(debug_path), exist_ok=True
-                                    )
-                                    data.image.save(debug_path)
-                                    logger(
-                                        f"[UNOFFICIAL RETRO PATCH | DEBUG] Successfully exported pixelated {asset_name} in {debug_path}"
-                                    )
-                            else:
-                                warnings.warn(
-                                    f"[UNOFFICIAL RETRO PATCH] {asset_name} in {asset_file} does not have an image attribute."
-                                )
-                        except Exception as e:
-                            warnings.warn(f"Failed to pixelate {asset_file}: {e}")
+            # Process textures in parallel with progress callback
+            def progress_callback(current, total):
+                nonlocal processed_textures_total
+                # Calculate the base count for this asset file
+                base_count = processed_textures_total
+                # Update with current progress within this asset file
+                current_total = base_count + current
+                logger(f"[UNOFFICIAL RETRO PATCH] Pixelating texture {current_total}/{total_textures_across_files}")
+            
+            processed_results = process_texture_batch(
+                texture_data_list, 
+                resize_amount, 
+                logger, 
+                progress_callback
+            )
+            
+            processed_textures = len(processed_results)
+            processed_textures_total += processed_textures
 
             # Save the modified asset file
             modified_asset_file = asset_file + ".tmp"
@@ -196,6 +201,9 @@ def pixelate_edition(edition_name: str, logger=None):
             # Explicitly release UnityPy objects and collect garbage
             del env
             gc.collect()
+            
+            # Small delay to allow memory to be freed
+            time.sleep(0.1)
 
             # Backup original and replace
             backup_no = 1
@@ -210,11 +218,90 @@ def pixelate_edition(edition_name: str, logger=None):
             logger(
                 f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
             )
+            log_memory_usage(logger)
         except Exception as e:
             warnings.warn(
                 f"[UNOFFICIAL RETRO PATCH] Failed to load asset file '{asset_file}': {e}"
             )
             continue
+
+
+def process_texture_batch(texture_data_list, resize_amount, logger=None, progress_callback=None):
+    """
+    Process a batch of textures in parallel.
+    
+    Args:
+        texture_data_list: List of tuples (obj, pixelate_entry, asset_file)
+        resize_amount: Resize amount for pixelation
+        logger: Logger function
+        progress_callback: Callback for progress updates
+    
+    Returns:
+        List of processed texture data
+    """
+    if logger is None:
+        logger = print
+    
+    processed_count = 0
+    total_count = len(texture_data_list)
+    results = []
+    
+    def process_single_texture(texture_data):
+        obj, pixelate_entry, asset_file = texture_data
+        asset_dir, asset, asset_name, asset_ext, mask_file = pixelate_entry.values()
+        
+        try:
+            data = obj.read()
+            
+            if not hasattr(data, "m_Name") or not data.m_Name == asset_name:
+                return None
+            
+            if hasattr(data, "image"):
+                data.image = process_image(
+                    image=data.image,
+                    resize_amount=resize_amount,
+                    mask_file=mask_file,
+                    asset_name=asset_name,
+                )
+                data.save()
+                return (obj, asset_name, asset_file)
+            else:
+                warnings.warn(f"[UNOFFICIAL RETRO PATCH] {asset_name} in {asset_file} does not have an image attribute.")
+                return None
+        except Exception as e:
+            warnings.warn(f"Failed to pixelate {asset_name} in {asset_file}: {e}")
+            return None
+        finally:
+            # Force garbage collection after each texture to manage memory
+            gc.collect()
+    
+    # Use ThreadPoolExecutor for parallel processing
+    # Limit workers to avoid memory issues - reduce for large textures
+    max_workers = min(2, total_count)  # Reduced to 2 workers to manage memory better
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_texture = {
+            executor.submit(process_single_texture, texture_data): texture_data 
+            for texture_data in texture_data_list
+        }
+        
+        # Process completed tasks
+        for future in as_completed(future_to_texture):
+            result = future.result()
+            processed_count += 1
+            
+            if result:
+                obj, asset_name, asset_file = result
+                results.append((obj, asset_name, asset_file))
+                logger(f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}")
+            
+            # Update progress every few textures to avoid GUI spam
+            if processed_count % max(1, total_count // 10) == 0 or processed_count == total_count:
+                if progress_callback:
+                    progress_callback(processed_count, total_count)
+    
+    return results
 
 
 def main():
