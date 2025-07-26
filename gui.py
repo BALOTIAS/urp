@@ -237,6 +237,15 @@ class RetroPixelatorGUI:
         # --- FOOTER ---
         footer = ttk.Frame(root, padding="5")
         footer.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Progress bar (initially hidden)
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(
+            footer, variable=self.progress_var, mode='determinate'
+        )
+        # Don't pack initially - it will be shown when needed
+        self.progress_bar_visible = False
+        
         # Console output/status
         self.status_var = tk.StringVar()
         self.status_var.set("Ready. If the GUI becomes unresponsive during pixelation, please wait until the operation completes.")
@@ -244,6 +253,7 @@ class RetroPixelatorGUI:
             footer, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
         )
         status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        
         # Apply pixelation and restore backup buttons (right side)
         footer_pixelate_btn = ttk.Button(
             footer, text="Apply Pixelation", command=self.apply_pixelation_threaded
@@ -392,12 +402,22 @@ class RetroPixelatorGUI:
         except:
             return "Unknown"
 
+    def show_progress_bar(self):
+        if not self.progress_bar_visible:
+            self.progress_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+            self.progress_bar_visible = True
+    
+    def hide_progress_bar(self):
+        if self.progress_bar_visible:
+            self.progress_bar.pack_forget()
+            self.progress_bar_visible = False
+
     def apply_pixelation_threaded(self):
         # Run pixelation in a background thread to keep GUI responsive
         def worker():
             game_path = self.path_var.get()
             if not game_path or not os.path.exists(game_path):
-                self.status_var.set("Error: Please select a valid game installation path first.")
+                self.root.after(0, lambda: self.status_var.set("Error: Please select a valid game installation path first."))
                 return
             edition = self.selected_edition.get()
             if not self.config.has_section(edition):
@@ -405,15 +425,45 @@ class RetroPixelatorGUI:
             self.config.set(edition, "target_folder", game_path)
             with open("config.ini", "w") as configfile:
                 self.config.write(configfile)
-            self.status_var.set("Applying pixelation... This may take a while")
+            
+            # Show progress bar and set initial status
+            self.root.after(0, self.show_progress_bar)
+            self.root.after(0, lambda: self.progress_var.set(0))
+            self.root.after(0, lambda: self.status_var.set("Applying pixelation... This may take a while"))
+            
+            def gui_logger(msg):
+                # Use root.after() for thread-safe GUI updates
+                self.root.after(0, lambda: self.status_var.set(str(msg)))
+                # Update progress based on message content with throttling
+                if "Pixelating texture" in str(msg) and "/" in str(msg):
+                    try:
+                        # Extract progress from message like "Pixelating texture 1/5"
+                        msg_str = str(msg)
+                        # Find the part with numbers like "1/5"
+                        import re
+                        match = re.search(r'(\d+)/(\d+)', msg_str)
+                        if match:
+                            current, total = map(int, match.groups())
+                            progress_percent = (current / total) * 100
+                            # Throttle progress updates to every 5% or every texture if less than 20 total
+                            if total <= 20 or current % max(1, total // 20) == 0 or current == total:
+                                self.root.after(0, lambda: self.progress_var.set(progress_percent))
+                    except:
+                        pass  # If parsing fails, just continue
+            
             try:
-                pixelate_edition(edition)
-                self.status_var.set("Pixelation has been applied successfully!")
-                self.refresh_backups()
+                pixelate_edition(edition, logger=gui_logger)
+                self.root.after(0, lambda: self.status_var.set("Pixelation has been applied successfully!"))
+                self.root.after(0, self.refresh_backups)
             except Exception as e:
-                self.status_var.set(f"Failed to apply pixelation: {str(e)}")
+                self.root.after(0, lambda: self.status_var.set(f"Failed to apply pixelation: {str(e)}"))
             finally:
-                self.root.after(1000, lambda: self.status_var.set("Ready"))
+                # Hide progress bar and reset status after a delay
+                def cleanup():
+                    self.root.after(0, self.hide_progress_bar)
+                    self.root.after(0, lambda: self.status_var.set("Ready"))
+                self.root.after(1000, cleanup)
+        
         threading.Thread(target=worker, daemon=True).start()
 
     def restore_backup(self):
