@@ -4,7 +4,9 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, PhotoImage
 import configparser
 from PIL import Image, ImageTk
-from main import pixelate_edition
+from main import pixelate_edition, replace_files
+import gc
+import time
 import threading
 
 
@@ -452,8 +454,16 @@ class RetroPixelatorGUI:
                         pass  # If parsing fails, just continue
             
             try:
-                pixelate_edition(edition, logger=gui_logger)
+                files_to_replace = pixelate_edition(edition, logger=gui_logger)
+                gc.collect()  # Run garbage collection to free memory
+                time.sleep(1)  # Allow GUI to update before showing completion message
                 self.root.after(0, lambda: self.status_var.set("Pixelation has been applied successfully!"))
+
+
+                self.root.after(0, lambda: self.status_var.set("Replacing files..."))
+                replace_files(files_to_replace, logger=gui_logger)
+                self.root.after(0, lambda: self.status_var.set("Files replaced successfully!"))
+
                 self.root.after(0, self.refresh_backups)
             except Exception as e:
                 self.root.after(0, lambda: self.status_var.set(f"Failed to apply pixelation: {str(e)}"))

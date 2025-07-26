@@ -29,6 +29,13 @@ def log_memory_usage(logger=None):
     except ImportError:
         pass  # psutil not available
 
+def is_file_locked(filepath):
+    """Check if file is locked by another process."""
+    try:
+        with open(filepath, 'r+b'):
+            return False
+    except (PermissionError, OSError):
+        return True
 
 def pixelate_edition(edition_name: str, logger=None):
     if logger is None:
@@ -136,6 +143,9 @@ def pixelate_edition(edition_name: str, logger=None):
     logger(f"[UNOFFICIAL RETRO PATCH] Total textures to process: {total_textures_across_files}")
     log_memory_usage(logger)
 
+    # Store pairs of (original_file, temp_file) to process after the loop
+    files_to_replace = []
+
     for asset_file in pixelate_asset_files:
         try:
             # --- Restore latest backup if it exists ---
@@ -221,7 +231,7 @@ def pixelate_edition(edition_name: str, logger=None):
             else:
                 logger(f"[UNOFFICIAL RETRO PATCH] Modified {len(modified_objects)} objects in {asset_file}")
 
-            # Save the modified asset file
+            # Save the modified asset file to temp location
             modified_asset_file = asset_file + ".tmp"
             try:
                 logger(f"[UNOFFICIAL RETRO PATCH] Saving modified asset file to: {modified_asset_file}")
@@ -232,43 +242,16 @@ def pixelate_edition(edition_name: str, logger=None):
                 if os.path.exists(modified_asset_file):
                     file_size = os.path.getsize(modified_asset_file)
                     logger(f"[UNOFFICIAL RETRO PATCH] Temporary file created: {modified_asset_file} ({file_size} bytes)")
+                    # Store the files for later processing
+                    files_to_replace.append((asset_file, modified_asset_file))
                 else:
                     raise Exception("Temporary file was not created")
-                
-                # Explicitly release UnityPy objects and collect garbage
-                del env
-                gc.collect()
-                
-                # Small delay to allow memory to be freed
-                time.sleep(0.1)
-
-                # Backup original and replace
-                backup_no = 1
-                backup_file = f"{asset_file}.backup{backup_no:03}"
-                while os.path.exists(backup_file):
-                    backup_no += 1
-                    backup_file = f"{asset_file}.backup{backup_no:03}"
-
-                logger(f"[UNOFFICIAL RETRO PATCH] Creating backup: {asset_file} -> {backup_file}")
-                # Create backup first
-                os.rename(asset_file, backup_file)
-                
-                logger(f"[UNOFFICIAL RETRO PATCH] Replacing original with modified file: {modified_asset_file} -> {asset_file}")
-                # Then replace with modified file
-                os.rename(modified_asset_file, asset_file)
 
                 logger(
-                    f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
+                    f"[UNOFFICIAL RETRO PATCH] Prepared modified asset file for replacement: {asset_file}"
                 )
                 log_memory_usage(logger)
             except Exception as e:
-                # If something went wrong, try to restore the original file
-                if os.path.exists(modified_asset_file):
-                    try:
-                        os.remove(modified_asset_file)
-                        logger(f"[UNOFFICIAL RETRO PATCH] Cleaned up temporary file: {modified_asset_file}")
-                    except:
-                        pass
                 warnings.warn(f"Failed to save modified asset file '{asset_file}': {e}")
                 continue
         except Exception as e:
@@ -277,6 +260,47 @@ def pixelate_edition(edition_name: str, logger=None):
             )
             continue
 
+    return files_to_replace
+
+def replace_files(files_to_replace, logger=None):
+    # Process all file replacements after the loop to ensure no asset files are being accessed
+    logger(f"[UNOFFICIAL RETRO PATCH] Processing {len(files_to_replace)} file replacements...")
+    for original_file, temp_file in files_to_replace:
+        max_wait = 30  # seconds
+        wait_time = 0
+        while is_file_locked(original_file) and wait_time < max_wait:
+            logger(f"[UNOFFICIAL RETRO PATCH] File locked, waiting... ({wait_time}s)")
+            time.sleep(2)
+            wait_time += 2
+
+        if is_file_locked(original_file):
+            warnings.warn(f"File still locked after {max_wait}s: {original_file}")
+            continue
+
+        try:
+            # Create backup
+            backup_no = 1
+            backup_file = f"{original_file}.backup{backup_no:03}"
+            while os.path.exists(backup_file):
+                backup_no += 1
+                backup_file = f"{original_file}.backup{backup_no:03}"
+
+            logger(f"[UNOFFICIAL RETRO PATCH] Creating backup: {original_file} -> {backup_file}")
+            os.rename(original_file, backup_file)
+
+            logger(f"[UNOFFICIAL RETRO PATCH] Replacing original with modified file: {temp_file} -> {original_file}")
+            os.rename(temp_file, original_file)
+
+            logger(f"[UNOFFICIAL RETRO PATCH] Successfully replaced asset file: {original_file}")
+        except Exception as e:
+            warnings.warn(f"Failed to replace asset file '{original_file}': {e}")
+            # Try to restore original if backup was created
+            if os.path.exists(backup_file) and not os.path.exists(original_file):
+                try:
+                    os.rename(backup_file, original_file)
+                    logger(f"[UNOFFICIAL RETRO PATCH] Restored original file from backup: {original_file}")
+                except Exception as restore_e:
+                    warnings.warn(f"Failed to restore original file '{original_file}': {restore_e}")
 
 def main():
     print("\n[UNOFFICIAL RETRO PATCH] Starting pixelation process...")
