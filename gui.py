@@ -406,8 +406,11 @@ class RetroPixelatorGUI:
             with open("config.ini", "w") as configfile:
                 self.config.write(configfile)
             self.status_var.set("Applying pixelation... This may take a while")
+            def gui_logger(msg):
+                self.status_var.set(str(msg))
+                self.root.update_idletasks()
             try:
-                pixelate_edition(edition)
+                pixelate_edition(edition, logger=gui_logger)
                 self.status_var.set("Pixelation has been applied successfully!")
                 self.refresh_backups()
             except Exception as e:

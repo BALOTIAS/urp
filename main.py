@@ -5,6 +5,7 @@ import configparser
 from dotenv import load_dotenv
 from unitypy_fixes import patch_unitypy
 from pixelation import process_image
+import gc
 
 
 load_dotenv()
@@ -14,11 +15,13 @@ DEBUG_ENABLED = os.getenv("DEBUG_ENABLED", "False").lower() in ("true", "1", "ye
 patch_unitypy()
 
 
-def pixelate_edition(edition_name: str):
+def pixelate_edition(edition_name: str, logger=None):
+    if logger is None:
+        logger = print
     config = configparser.ConfigParser()
     config.read("config.ini")
 
-    print(f"\n[UNOFFICIAL RETRO PATCH] Pixelating edition: {edition_name}")
+    logger(f"\n[UNOFFICIAL RETRO PATCH] Pixelating edition: {edition_name}")
 
     target_folder = os.getenv(
         f"{edition_name.upper().replace(' ', '_')}_TARGET_FOLDER"
@@ -110,7 +113,23 @@ def pixelate_edition(edition_name: str):
 
     for asset_file in pixelate_asset_files:
         try:
+            # --- Restore latest backup if it exists ---
+            backup_no = 1
+            backup_file = f"{asset_file}.backup{backup_no:03}"
+            latest_backup = None
+            while os.path.exists(backup_file):
+                latest_backup = backup_file
+                backup_no += 1
+                backup_file = f"{asset_file}.backup{backup_no:03}"
+            if latest_backup:
+                logger(f"[UNOFFICIAL RETRO PATCH] Restoring latest backup before pixelation: {latest_backup}")
+                if os.path.exists(asset_file):
+                    os.remove(asset_file)
+                os.rename(latest_backup, asset_file)
+
             env = UnityPy.load(asset_file)
+            total_textures = sum(1 for obj in env.objects if obj.type.name == "Texture2D")
+            processed_textures = 0
 
             for obj in env.objects:
                 if obj.type.name == "Texture2D":
@@ -131,6 +150,7 @@ def pixelate_edition(edition_name: str):
                                 continue
 
                             if hasattr(data, "image"):
+                                logger(f"[UNOFFICIAL RETRO PATCH] Pixelating {asset_name} in {asset_file} ({processed_textures+1}/{total_textures})")
                                 data.image = process_image(
                                     image=data.image,
                                     resize_amount=resize_amount,
@@ -138,13 +158,13 @@ def pixelate_edition(edition_name: str):
                                     asset_name=asset_name,
                                 )
                                 data.save()
+                                processed_textures += 1
 
-                                print(
+                                logger(
                                     f"[UNOFFICIAL RETRO PATCH] Successfully pixelated {asset_name} in {asset_file}"
                                 )
 
                                 if DEBUG_ENABLED:
-                                    # Debug saving code remains the same...
                                     debug_path = os.path.join(
                                         debug_pixelated_folder, asset_dir, asset
                                     )
@@ -152,7 +172,7 @@ def pixelate_edition(edition_name: str):
                                         os.path.dirname(debug_path), exist_ok=True
                                     )
                                     data.image.save(debug_path)
-                                    print(
+                                    logger(
                                         f"[UNOFFICIAL RETRO PATCH | DEBUG] Successfully exported pixelated {asset_name} in {debug_path}"
                                     )
                             else:
@@ -167,10 +187,13 @@ def pixelate_edition(edition_name: str):
             with open(modified_asset_file, "wb") as f:
                 f.write(env.file.save())
 
+            # Explicitly release UnityPy objects and collect garbage
+            del env
+            gc.collect()
+
+            # Backup original and replace
             backup_no = 1
-            backup_file = (
-                f"{asset_file}.backup{backup_no:03}"  # e.g. resources.assets.backup001
-            )
+            backup_file = f"{asset_file}.backup{backup_no:03}"
             while os.path.exists(backup_file):
                 backup_no += 1
                 backup_file = f"{asset_file}.backup{backup_no:03}"
@@ -178,7 +201,7 @@ def pixelate_edition(edition_name: str):
             os.rename(asset_file, backup_file)
             os.rename(modified_asset_file, asset_file)
 
-            print(
+            logger(
                 f"[UNOFFICIAL RETRO PATCH] Successfully saved modified asset file: {asset_file}"
             )
         except Exception as e:
