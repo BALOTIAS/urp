@@ -209,7 +209,7 @@ class RetroPixelatorGUI:
 
         # --- RIGHT COLUMN ---
         # Preview area
-        preview_frame = ttk.LabelFrame(right_frame, text="Preview", padding="10")
+        preview_frame = ttk.LabelFrame(right_frame, text="Preview (This just pixelates a screenshot, the actual game will look better)", padding="10")
         preview_frame.pack(fill=tk.BOTH, expand=False, padx=5, pady=5)
         self.preview_canvas = tk.Label(preview_frame)
         self.preview_canvas.pack(padx=5, pady=5)
