@@ -37,7 +37,7 @@ def is_file_locked(filepath):
     except (PermissionError, OSError):
         return True
 
-def pixelate_edition(edition_name: str, logger=None):
+def pixelate_edition(edition_name: str, logger=None, black_shadows=False):
     if logger is None:
         logger = print
     config = configparser.ConfigParser()
@@ -206,6 +206,7 @@ def pixelate_edition(edition_name: str, logger=None):
                             resize_amount=resize_amount,
                             mask_file=mask_file,
                             asset_name=asset_name,
+                            black_shadows=black_shadows,
                         )
                         data.save()
                         modified_objects.append(obj)  # Track that this object was modified

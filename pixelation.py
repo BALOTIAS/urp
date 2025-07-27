@@ -28,6 +28,39 @@ def pixelate_image(image, resize_amount):
     )
 
 
+def apply_black_shadows(image, shadow_color=(0, 0, 0, 255)):
+    """
+    Apply black shadows to an image by replacing semi-transparent areas with solid black.
+    
+    Args:
+        image: PIL Image object (RGBA)
+        shadow_color: Tuple of (R, G, B, A) for shadow color, defaults to black
+        
+    Returns:
+        PIL Image with black shadows applied
+    """
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+    
+    # Create a copy of the image
+    result = image.copy()
+    
+    # Get the alpha channel
+    alpha = image.split()[-1]
+    
+    # Create a mask for semi-transparent areas (alpha between 1 and 254)
+    # This will identify areas that are shadows
+    shadow_mask = alpha.point(lambda p: 255 if 1 < p < 254 else 0)
+    
+    # Create a solid color image for shadows
+    shadow_color_img = Image.new('RGBA', image.size, shadow_color)
+    
+    # Apply the shadow color to semi-transparent areas
+    result = Image.composite(result, shadow_color_img, shadow_mask)
+    
+    return result
+
+
 def apply_offset_correction(pixelated_image, resize_amount):
     """
     Apply pixel offset correction based on resize amount to fix spillover issues.
@@ -70,15 +103,16 @@ def apply_offset_correction(pixelated_image, resize_amount):
     return result
 
 
-def process_image(image, resize_amount, mask_file=None, asset_name=None):
+def process_image(image, resize_amount, mask_file=None, asset_name=None, black_shadows=False):
     """
-    Process an image with pixelation, offset correction, and optional masking.
+    Process an image with pixelation, offset correction, optional masking, and black shadows.
 
     Args:
         image: PIL Image object (RGBA)
         resize_amount: Float between 0 and 1
         mask_file: Path to mask file or None
         asset_name: Name of the asset (for logging)
+        black_shadows: Boolean to enable black shadows feature
 
     Returns:
         Processed PIL Image
@@ -111,6 +145,12 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None):
         final_image = Image.composite(pixelated, image, hard_alpha_mask)
         if asset_name:
             warnings.warn(f"[UNOFFICIAL RETRO PATCH] Pixelates {file_name} without custom mask, using alpha channel as mask.")
+
+    # Apply black shadows if enabled
+    if black_shadows:
+        final_image = apply_black_shadows(final_image)
+        if asset_name:
+            print(f"[UNOFFICIAL RETRO PATCH] Applied black shadows to {file_name}")
 
     # Restore original alpha
     final_image.putalpha(alpha_mask)

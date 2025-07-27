@@ -232,6 +232,20 @@ class RetroPixelatorGUI:
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
 
+        # Options section
+        options_frame = ttk.LabelFrame(right_frame, text="Options", padding="10")
+        options_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Black Shadows toggle
+        self.black_shadows_var = tk.BooleanVar(value=True)  # Default to True
+        self.black_shadows_checkbox = ttk.Checkbutton(
+            options_frame,
+            text="Black Shadows",
+            variable=self.black_shadows_var,
+            command=self.update_preview
+        )
+        self.black_shadows_checkbox.pack(anchor=tk.W, padx=5, pady=2)
+
         # Now safe to call preview methods
         self.load_placeholder_image()
         self.update_preview()
@@ -288,8 +302,12 @@ class RetroPixelatorGUI:
         self.pixelation_label.config(text=f"Pixelation: {value:.2f} (Recommended: 0.5)")
 
         # Apply pixelation to the placeholder image
-        from pixelation import pixelate_image
+        from pixelation import pixelate_image, apply_black_shadows
         pil_img = pixelate_image(self.preview_pil, value)
+        
+        # Apply black shadows if enabled
+        if self.black_shadows_var.get():
+            pil_img = apply_black_shadows(pil_img)
 
         # Make preview square (crop to square center)
         width, height = pil_img.size
@@ -454,7 +472,9 @@ class RetroPixelatorGUI:
                         pass  # If parsing fails, just continue
             
             try:
-                files_to_replace = pixelate_edition(edition, logger=gui_logger)
+                # Get the black shadows option from the GUI
+                black_shadows = self.black_shadows_var.get()
+                files_to_replace = pixelate_edition(edition, logger=gui_logger, black_shadows=black_shadows)
                 gc.collect()  # Run garbage collection to free memory
                 time.sleep(1)  # Allow GUI to update before showing completion message
                 self.root.after(0, lambda: self.status_var.set("Pixelation has been applied successfully!"))
