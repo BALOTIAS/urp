@@ -232,6 +232,29 @@ class RetroPixelatorGUI:
         self.pixelation_label = ttk.Label(pixelation_frame, text="Pixelation: 0.5")
         self.pixelation_label.pack(anchor=tk.CENTER)
 
+        # Options section
+        options_frame = ttk.LabelFrame(right_frame, text="Options", padding="10")
+        options_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Black Shadows toggle
+        self.black_shadows_var = tk.BooleanVar(value=True)  # Default to True
+        self.black_shadows_checkbox = ttk.Checkbutton(
+            options_frame,
+            text="Black Shadows",
+            variable=self.black_shadows_var,
+            command=self.update_preview
+        )
+        self.black_shadows_checkbox.pack(anchor=tk.W, padx=5, pady=2)
+        
+        # Add a small note about black shadows
+        black_shadows_note = ttk.Label(
+            options_frame,
+            text="(Replaces semi-transparent shadows with solid black in game textures)",
+            font=("", 8),
+            foreground="gray"
+        )
+        black_shadows_note.pack(anchor=tk.W, padx=5, pady=(0, 2))
+
         # Now safe to call preview methods
         self.load_placeholder_image()
         self.update_preview()
@@ -291,6 +314,13 @@ class RetroPixelatorGUI:
         from pixelation import pixelate_image
         pil_img = pixelate_image(self.preview_pil, value)
 
+        if self.black_shadows_var.get():
+            from pixelation import apply_black_shadows
+            pil_img = apply_black_shadows(pil_img)
+        
+        # Note: Black shadows are not applied to preview images since they are screenshots
+        # without transparency. The black shadows feature will be applied to actual game textures.
+
         # Make preview square (crop to square center)
         width, height = pil_img.size
         side = min(width, height)
@@ -301,7 +331,7 @@ class RetroPixelatorGUI:
         pil_img = pil_img.crop((left, top, right, bottom))
 
         self.preview_image = ImageTk.PhotoImage(pil_img)
-        self.preview_canvas.config(image=self.preview_image, width=560, height=560)
+        self.preview_canvas.config(image=self.preview_image, width=560, height=480)
         self.preview_canvas.image = self.preview_image
 
     def select_edition(self, edition):
@@ -454,7 +484,9 @@ class RetroPixelatorGUI:
                         pass  # If parsing fails, just continue
             
             try:
-                files_to_replace = pixelate_edition(edition, logger=gui_logger)
+                # Get the black shadows option from the GUI
+                black_shadows = self.black_shadows_var.get()
+                files_to_replace = pixelate_edition(edition, logger=gui_logger, black_shadows=black_shadows)
                 gc.collect()  # Run garbage collection to free memory
                 time.sleep(1)  # Allow GUI to update before showing completion message
                 self.root.after(0, lambda: self.status_var.set("Pixelation has been applied successfully!"))

@@ -1,6 +1,6 @@
 from PIL import Image
 import os
-
+import numpy as np
 
 def pixelate_image(image, resize_amount):
     """
@@ -26,6 +26,40 @@ def pixelate_image(image, resize_amount):
         (image.width, image.height),
         Image.Resampling.NEAREST,
     )
+
+
+def apply_black_shadows(image, shadow_color=(0, 0, 0, 255)):
+    """
+    Apply black shadows to an image by replacing semi-transparent areas with solid black.
+
+    Args:
+        image: PIL Image object (RGBA)
+        shadow_color: Tuple of (R, G, B, A) for shadow color, defaults to black
+
+    Returns:
+        PIL Image with black shadows applied
+    """
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+
+    # Convert to numpy array for faster pixel operations
+    img_array = np.array(image)
+
+    # Create boolean mask for pixels that should be replaced
+    # Semi-transparent black pixels (shadow-like) (R=0, G=0, B=0, 64 < A < 255)
+    mask = (
+        (img_array[:, :, 0] == 0) &  # R = 0
+        (img_array[:, :, 1] == 0) &  # G = 0
+        (img_array[:, :, 2] == 0) &  # B = 0
+        (img_array[:, :, 3] > 64) &  # A > 64
+        (img_array[:, :, 3] < 255)  # A < 255
+    )
+
+    # Apply shadow color to masked pixels
+    img_array[mask] = shadow_color
+
+    # Convert back to PIL Image
+    return Image.fromarray(img_array, 'RGBA')
 
 
 def apply_offset_correction(pixelated_image, resize_amount):
@@ -70,15 +104,16 @@ def apply_offset_correction(pixelated_image, resize_amount):
     return result
 
 
-def process_image(image, resize_amount, mask_file=None, asset_name=None):
+def process_image(image, resize_amount, mask_file=None, asset_name=None, black_shadows=False):
     """
-    Process an image with pixelation, offset correction, and optional masking.
+    Process an image with pixelation, offset correction, optional masking, and black shadows.
 
     Args:
         image: PIL Image object (RGBA)
         resize_amount: Float between 0 and 1
         mask_file: Path to mask file or None
         asset_name: Name of the asset (for logging)
+        black_shadows: Boolean to enable black shadows feature
 
     Returns:
         Processed PIL Image
@@ -114,5 +149,11 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None):
 
     # Restore original alpha
     final_image.putalpha(alpha_mask)
+
+    # Apply black shadows if enabled
+    if black_shadows:
+        final_image = apply_black_shadows(final_image)
+        if asset_name:
+            print(f"[UNOFFICIAL RETRO PATCH] Applied black shadows to {file_name}")
 
     return final_image
