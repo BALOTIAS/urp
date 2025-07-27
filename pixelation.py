@@ -129,6 +129,12 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None, black_s
     # Apply pixelation
     pixelated = pixelate_image(image, resize_amount)
 
+    # Apply black shadows if enabled
+    if black_shadows:
+        pixelated = apply_black_shadows(pixelated)
+        if asset_name:
+            print(f"[UNOFFICIAL RETRO PATCH] Applied black shadows to {file_name}")
+
     # Apply offset correction
     # Doesn't work well as of now, so it's commented out
     # corrected = apply_offset_correction(pixelated, resize_amount)
@@ -147,13 +153,15 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None, black_s
         if asset_name:
             warnings.warn(f"[UNOFFICIAL RETRO PATCH] Pixelates {file_name} without custom mask, using alpha channel as mask.")
 
-    # Restore original alpha
-    final_image.putalpha(alpha_mask)
-
-    # Apply black shadows if enabled
+    # If black shadows are enabled, we want to have the pixelated shadow areas, so we can't simply use the alpha mask
     if black_shadows:
-        final_image = apply_black_shadows(final_image)
-        if asset_name:
-            print(f"[UNOFFICIAL RETRO PATCH] Applied black shadows to {file_name}")
+        # Restore original alpha
+        pixelated_mask = pixelated.split()[-1].convert("L")
+
+        # combine the alpha mask with the pixelated mask, ensuring the alpha mask uses pixelated mask,
+        # this will pixelate the shadow areas
+        alpha_mask = Image.composite(pixelated_mask, alpha_mask, hard_alpha_mask)
+
+    final_image.putalpha(alpha_mask)
 
     return final_image
