@@ -313,6 +313,10 @@ class RetroPixelatorGUI:
         # Apply pixelation to the placeholder image
         from pixelation import pixelate_image
         pil_img = pixelate_image(self.preview_pil, value)
+
+        if self.black_shadows_var.get():
+            from pixelation import apply_black_shadows
+            pil_img = apply_black_shadows(pil_img)
         
         # Note: Black shadows are not applied to preview images since they are screenshots
         # without transparency. The black shadows feature will be applied to actual game textures.
@@ -327,7 +331,7 @@ class RetroPixelatorGUI:
         pil_img = pil_img.crop((left, top, right, bottom))
 
         self.preview_image = ImageTk.PhotoImage(pil_img)
-        self.preview_canvas.config(image=self.preview_image, width=560, height=560)
+        self.preview_canvas.config(image=self.preview_image, width=560, height=480)
         self.preview_canvas.image = self.preview_image
 
     def select_edition(self, edition):

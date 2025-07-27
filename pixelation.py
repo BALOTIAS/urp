@@ -1,6 +1,6 @@
 from PIL import Image
 import os
-
+import numpy as np
 
 def pixelate_image(image, resize_amount):
     """
@@ -31,49 +31,35 @@ def pixelate_image(image, resize_amount):
 def apply_black_shadows(image, shadow_color=(0, 0, 0, 255)):
     """
     Apply black shadows to an image by replacing semi-transparent areas with solid black.
-    
+
     Args:
         image: PIL Image object (RGBA)
         shadow_color: Tuple of (R, G, B, A) for shadow color, defaults to black
-        
+
     Returns:
         PIL Image with black shadows applied
     """
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
-    
-    # Create a copy of the image
-    result = image.copy()
-    
-    # Get the alpha channel
-    alpha = image.split()[-1]
-    
-    # Check if there are any semi-transparent pixels
-    alpha_extrema = alpha.getextrema()
-    min_alpha, max_alpha = alpha_extrema
-    
-    # If the image has no semi-transparent areas (all pixels are fully opaque or transparent),
-    # return the original image unchanged
-    if min_alpha == max_alpha or (min_alpha == 0 and max_alpha == 255):
-        return result
-    
-    # Create a mask for semi-transparent areas (alpha between 1 and 254)
-    # This will identify areas that are shadows
-    shadow_mask = alpha.point(lambda p: 255 if 1 < p < 254 else 0)
-    
-    # Check if the shadow mask has any white pixels (semi-transparent areas)
-    shadow_extrema = shadow_mask.getextrema()
-    if shadow_extrema[1] == 0:
-        # No semi-transparent areas found, return original image
-        return result
-    
-    # Create a solid color image for shadows
-    shadow_color_img = Image.new('RGBA', image.size, shadow_color)
-    
-    # Apply the shadow color to semi-transparent areas
-    result = Image.composite(result, shadow_color_img, shadow_mask)
-    
-    return result
+
+    # Convert to numpy array for faster pixel operations
+    img_array = np.array(image)
+
+    # Create boolean mask for pixels that should be replaced
+    # Semi-transparent black pixels (shadow-like) (R=0, G=0, B=0, 64 < A < 255)
+    mask = (
+        (img_array[:, :, 0] == 0) &  # R = 0
+        (img_array[:, :, 1] == 0) &  # G = 0
+        (img_array[:, :, 2] == 0) &  # B = 0
+        (img_array[:, :, 3] > 64) &  # A > 64
+        (img_array[:, :, 3] < 255)  # A < 255
+    )
+
+    # Apply shadow color to masked pixels
+    img_array[mask] = shadow_color
+
+    # Convert back to PIL Image
+    return Image.fromarray(img_array, 'RGBA')
 
 
 def apply_offset_correction(pixelated_image, resize_amount):
@@ -161,13 +147,13 @@ def process_image(image, resize_amount, mask_file=None, asset_name=None, black_s
         if asset_name:
             warnings.warn(f"[UNOFFICIAL RETRO PATCH] Pixelates {file_name} without custom mask, using alpha channel as mask.")
 
+    # Restore original alpha
+    final_image.putalpha(alpha_mask)
+
     # Apply black shadows if enabled
     if black_shadows:
         final_image = apply_black_shadows(final_image)
         if asset_name:
             print(f"[UNOFFICIAL RETRO PATCH] Applied black shadows to {file_name}")
-
-    # Restore original alpha
-    final_image.putalpha(alpha_mask)
 
     return final_image
