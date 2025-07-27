@@ -245,6 +245,15 @@ class RetroPixelatorGUI:
             command=self.update_preview
         )
         self.black_shadows_checkbox.pack(anchor=tk.W, padx=5, pady=2)
+        
+        # Add a small note about black shadows
+        black_shadows_note = ttk.Label(
+            options_frame,
+            text="(Replaces semi-transparent shadows with solid black in game textures)",
+            font=("", 8),
+            foreground="gray"
+        )
+        black_shadows_note.pack(anchor=tk.W, padx=5, pady=(0, 2))
 
         # Now safe to call preview methods
         self.load_placeholder_image()
@@ -302,12 +311,11 @@ class RetroPixelatorGUI:
         self.pixelation_label.config(text=f"Pixelation: {value:.2f} (Recommended: 0.5)")
 
         # Apply pixelation to the placeholder image
-        from pixelation import pixelate_image, apply_black_shadows
+        from pixelation import pixelate_image
         pil_img = pixelate_image(self.preview_pil, value)
         
-        # Apply black shadows if enabled
-        if self.black_shadows_var.get():
-            pil_img = apply_black_shadows(pil_img)
+        # Note: Black shadows are not applied to preview images since they are screenshots
+        # without transparency. The black shadows feature will be applied to actual game textures.
 
         # Make preview square (crop to square center)
         width, height = pil_img.size

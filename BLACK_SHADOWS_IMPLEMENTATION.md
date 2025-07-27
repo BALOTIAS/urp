@@ -15,11 +15,13 @@ The "Black Shadows" feature has been successfully implemented in the Unofficial 
 - **Function**: `apply_black_shadows()` in `pixelation.py`
 - **Purpose**: Replaces semi-transparent areas (alpha values between 1-254) with solid black
 - **Configurable**: Shadow color can be customized (currently defaults to black)
+- **Robust**: Handles images without transparency gracefully (returns unchanged)
 - **Process**: 
-  1. Identifies semi-transparent pixels using alpha channel
-  2. Creates a mask for shadow areas
-  3. Replaces semi-transparent areas with solid black color
-  4. Preserves original alpha channel for proper blending
+  1. Checks if image has semi-transparent areas
+  2. Identifies semi-transparent pixels using alpha channel
+  3. Creates a mask for shadow areas
+  4. Replaces semi-transparent areas with solid black color
+  5. Preserves original alpha channel for proper blending
 
 ### 3. Integration with Pixelation Pipeline
 - Modified `process_image()` function to accept `black_shadows` parameter
@@ -28,9 +30,10 @@ The "Black Shadows" feature has been successfully implemented in the Unofficial 
 - Maintains compatibility with existing masking system
 
 ### 4. Preview System
-- Updated preview to show black shadows effect in real-time
-- Toggle the checkbox to see immediate visual feedback
-- Works with the pixelation slider for combined effects
+- Preview shows pixelation effect only (black shadows not applied to screenshots)
+- Black shadows are applied only to actual game textures with transparency
+- Toggle the checkbox to control the feature for game file processing
+- Added explanatory note about black shadows functionality
 
 ### 5. Main Processing Pipeline
 - Updated `pixelate_edition()` function to accept black shadows parameter
@@ -67,8 +70,9 @@ The "Black Shadows" feature has been successfully implemented in the Unofficial 
 1. Launch the application
 2. The "Black Shadows" option is enabled by default
 3. Adjust pixelation amount as desired
-4. Toggle Black Shadows on/off to see the difference
+4. Toggle Black Shadows on/off to control the feature
 5. Apply pixelation to game files with the selected options
+6. Black shadows will be applied only to game textures that have semi-transparent areas
 
 ## Future Enhancements
 - Shadow color configuration (currently hardcoded to black)

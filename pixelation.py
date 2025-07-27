@@ -48,9 +48,24 @@ def apply_black_shadows(image, shadow_color=(0, 0, 0, 255)):
     # Get the alpha channel
     alpha = image.split()[-1]
     
+    # Check if there are any semi-transparent pixels
+    alpha_extrema = alpha.getextrema()
+    min_alpha, max_alpha = alpha_extrema
+    
+    # If the image has no semi-transparent areas (all pixels are fully opaque or transparent),
+    # return the original image unchanged
+    if min_alpha == max_alpha or (min_alpha == 0 and max_alpha == 255):
+        return result
+    
     # Create a mask for semi-transparent areas (alpha between 1 and 254)
     # This will identify areas that are shadows
     shadow_mask = alpha.point(lambda p: 255 if 1 < p < 254 else 0)
+    
+    # Check if the shadow mask has any white pixels (semi-transparent areas)
+    shadow_extrema = shadow_mask.getextrema()
+    if shadow_extrema[1] == 0:
+        # No semi-transparent areas found, return original image
+        return result
     
     # Create a solid color image for shadows
     shadow_color_img = Image.new('RGBA', image.size, shadow_color)
