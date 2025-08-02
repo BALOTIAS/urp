@@ -13,7 +13,7 @@ import threading
 class RetroPixelatorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Unofficial Retro Patch")
+        self.root.title("Unofficial Retro Patch (v1.0.0)")
         self.root.geometry("1280x840")
         self.root.minsize(800, 600)
         self.root.resizable(True, True)
@@ -108,6 +108,7 @@ class RetroPixelatorGUI:
         desc_text = ("The Unofficial Retro Patch applies a pixelated look to Stronghold,\n"
                      "giving it a more retro appearance that feels closer to the original game's art style.\n"
                      "This tool modifies the game's texture assets to create a nostalgic experience.\n\n"
+                     "Made with <3 by BALOTIAS.\n\n"
                      "Stronghold Definitive Edition &\nStronghold Crusader Definitive Edition © Firefly Studios")
         description = ttk.Label(
             logo_desc_frame,
@@ -249,7 +250,7 @@ class RetroPixelatorGUI:
         # Add a small note about black shadows
         black_shadows_note = ttk.Label(
             options_frame,
-            text="(Replaces semi-transparent shadows with solid black in game textures)",
+            text="(Replaces semi-transparent shadows with solid black)",
             font=("", 8),
             foreground="gray"
         )
@@ -303,16 +304,15 @@ class RetroPixelatorGUI:
 
         self.preview_pil = Image.open(placeholder_path)
 
-    def update_preview(self, event=None):
-        value = self.pixelation_var.get()
-        # Adapt value to be rounded to two decimal places
-        value = round(value, 2)
+    def pixelation_amount(self):
+        return round(self.pixelation_var.get(), 2)
 
-        self.pixelation_label.config(text=f"Pixelation: {value:.2f} (Recommended: 0.5)")
+    def update_preview(self, event=None):
+        self.pixelation_label.config(text=f"Pixelation: {self.pixelation_amount():.2f} (Recommended: 0.5)")
 
         # Apply pixelation to the placeholder image
         from pixelation import pixelate_image
-        pil_img = pixelate_image(self.preview_pil, value)
+        pil_img = pixelate_image(self.preview_pil, self.pixelation_amount())
 
         if self.black_shadows_var.get():
             from pixelation import apply_black_shadows
@@ -486,7 +486,12 @@ class RetroPixelatorGUI:
             try:
                 # Get the black shadows option from the GUI
                 black_shadows = self.black_shadows_var.get()
-                files_to_replace = pixelate_edition(edition, logger=gui_logger, black_shadows=black_shadows)
+                files_to_replace = pixelate_edition(
+                    edition,
+                    logger=gui_logger,
+                    resize_amount=self.pixelation_amount(),
+                    black_shadows=black_shadows
+                )
                 gc.collect()  # Run garbage collection to free memory
                 time.sleep(1)  # Allow GUI to update before showing completion message
                 self.root.after(0, lambda: self.status_var.set("Pixelation has been applied successfully!"))

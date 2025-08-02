@@ -37,7 +37,7 @@ def is_file_locked(filepath):
     except (PermissionError, OSError):
         return True
 
-def pixelate_edition(edition_name: str, logger=None, black_shadows=False):
+def pixelate_edition(edition_name: str, logger=None, resize_amount=False, black_shadows=False):
     if logger is None:
         logger = print
     config = configparser.ConfigParser()
@@ -72,12 +72,13 @@ def pixelate_edition(edition_name: str, logger=None, black_shadows=False):
         fallback=f"downloads/{edition_name}/pixelated",
     )
 
-    if os.getenv(f"{edition_name.upper().replace(' ', '_')}_RESIZE_AMOUNT"):
-        resize_amount = float(
-            os.getenv(f"{edition_name.upper().replace(' ', '_')}_RESIZE_AMOUNT")
-        )
-    else:
-        resize_amount = config.getfloat(edition_name, "resize_amount", fallback=0.5)
+    if not resize_amount:
+        if os.getenv(f"{edition_name.upper().replace(' ', '_')}_RESIZE_AMOUNT"):
+            resize_amount = float(
+                os.getenv(f"{edition_name.upper().replace(' ', '_')}_RESIZE_AMOUNT")
+            )
+        else:
+            resize_amount = config.getfloat(edition_name, "resize_amount", fallback=0.5)
 
     if os.getenv(f"{edition_name.upper().replace(' ', '_')}_PIXELATE_FILES"):
         pixelate_files = os.getenv(
