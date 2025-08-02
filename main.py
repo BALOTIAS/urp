@@ -100,6 +100,16 @@ def pixelate_edition(edition_name: str, logger=None, black_shadows=False):
         logger(f"[UNOFFICIAL RETRO PATCH] No files to pixelate for {edition_name}.")
         return
 
+    ignore_black_shadow_files = list(
+        filter(
+            None,
+            map(
+                str.strip,
+                config.get(edition_name, "ignore_black_shadow_files", fallback="").split(","),
+            ),
+        )
+    )
+
     # Group pixelate_files by their directory,
     # so we can process them by the asset file (to avoid loading all asset files via UnityPy)
     pixelate_asset_files = {}
@@ -206,7 +216,7 @@ def pixelate_edition(edition_name: str, logger=None, black_shadows=False):
                             resize_amount=resize_amount,
                             mask_file=mask_file,
                             asset_name=asset_name,
-                            black_shadows=black_shadows,
+                            black_shadows=(black_shadows and f"{asset_dir}/{asset}" not in ignore_black_shadow_files),
                         )
                         data.save()
                         modified_objects.append(obj)  # Track that this object was modified

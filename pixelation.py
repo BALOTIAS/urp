@@ -46,12 +46,12 @@ def apply_black_shadows(image, shadow_color=(0, 0, 0, 255)):
     img_array = np.array(image)
 
     # Create boolean mask for pixels that should be replaced
-    # Semi-transparent black pixels (shadow-like) (R=0, G=0, B=0, 64 < A < 255)
+    # Semi-transparent black pixels (shadow-like) (R=0, G=0, B=0, 127 < A < 255)
     mask = (
         (img_array[:, :, 0] == 0) &  # R = 0
         (img_array[:, :, 1] == 0) &  # G = 0
         (img_array[:, :, 2] == 0) &  # B = 0
-        (img_array[:, :, 3] > 64) &  # A > 64
+        (img_array[:, :, 3] > 127) &  # A > 127
         (img_array[:, :, 3] < 255)  # A < 255
     )
 
