@@ -1,7 +1,5 @@
 """
 GUI entry point for the Unofficial Retro Patch.
-
-This module provides backward compatibility for the original GUI interface.
 """
 
 import tkinter as tk
