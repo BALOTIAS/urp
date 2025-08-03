@@ -67,7 +67,7 @@ class RetroPixelatorGUI:
         
         # Create main content frame
         self.main_frame = ttk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.main_frame, anchor="nw")
+        self.main_frame_id = self.canvas.create_window((0, 0), window=self.main_frame, anchor="nw")
         self.main_frame.columnconfigure(0, weight=1, uniform="col")
         self.main_frame.columnconfigure(1, weight=1, uniform="col")
         self.main_frame.rowconfigure(0, weight=1)
@@ -83,6 +83,16 @@ class RetroPixelatorGUI:
         self.setup_left_column()
         self.setup_right_column()
         self.setup_progress_panel()
+        
+        # Update scrollregion when frame size changes
+        def on_frame_configure(event=None):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.main_frame.bind("<Configure>", on_frame_configure)
+        
+        # Make canvas resize frame width to match canvas width
+        def on_canvas_configure(event=None):
+            self.canvas.itemconfig(self.main_frame_id, width=self.canvas.winfo_width())
+        self.canvas.bind("<Configure>", on_canvas_configure)
     
     def setup_scrollable_container(self):
         """Setup scrollable container for the main content."""
@@ -97,16 +107,6 @@ class RetroPixelatorGUI:
         vscroll.pack(side=tk.RIGHT, fill=tk.Y)
         hscroll.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # Update scrollregion when frame size changes
-        def on_frame_configure(event=None):
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        self.main_frame.bind("<Configure>", on_frame_configure)
-        
-        # Make canvas resize frame width to match canvas width
-        def on_canvas_configure(event=None):
-            self.canvas.itemconfig(self.main_frame_id, width=self.canvas.winfo_width())
-        self.canvas.bind("<Configure>", on_canvas_configure)
         
         # Mousewheel scrolling
         def _on_mousewheel(event):
