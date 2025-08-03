@@ -333,7 +333,8 @@ class RetroPixelatorGUI:
                 self.root.after(0, lambda: self.progress_panel.set_status("Pixelation has been applied successfully!"))
                 
             except Exception as e:
-                self.root.after(0, lambda: self.progress_panel.set_status(f"Failed to apply pixelation: {str(e)}"))
+                error_msg = str(e)
+                self.root.after(0, lambda: self.progress_panel.set_status(f"Failed to apply pixelation: {error_msg}"))
             finally:
                 # Cleanup
                 def cleanup():
